@@ -1,0 +1,47 @@
+active_model: "gpt_5"
+max_steps: 50  # Maximum number of agent steps before stopping
+
+# Embedding configuration for RAG system
+embedding:
+  model: "all-MiniLM-L6-v2"  # Default ChromaDB model
+  # Options: 
+  # - "all-MiniLM-L6-v2" (default, fast, 384 dimensions)
+  # - "text-embedding-3-small" (OpenAI, 1536 dimensions, requires API key)
+  # - "text-embedding-3-large" (OpenAI, 3072 dimensions, requires API key) 
+  # - "bge-large-en-v1.5" (high quality, 1024 dimensions)
+  # - "e5-large-v2" (multilingual, 1024 dimensions)
+
+# ChromaDB configuration
+chromadb:
+  distance_metric: "cosine"  # cosine, l2 (euclidean), or ip (inner product)
+  hnsw_space: "cosine"       # HNSW index space (cosine, l2, ip)
+  # HNSW performance parameters:
+  hnsw_construction_ef: 200  # Higher = better recall during construction (default: 200)
+  hnsw_m: 16                 # Number of connections per element (default: 16)
+  hnsw_search_ef: 10         # Higher = better recall during search (default: 10)
+
+# RAG configuration
+rag:
+  similarity_threshold: 0.3  # Minimum similarity score for inclusion (30%)
+  max_chunks: 10            # Maximum chunks to include in context
+  fallback_chunks: 10       # Chunks to include if not enough meet threshold
+
+llm_providers:
+  gpt_5:
+    model: "openai/gpt-5-mini"
+    base_url: "https://openrouter.ai/api/v1"
+    timeout: 120
+    max_retries: 3
+    reasoning_effort: "medium"
+    verbosity: "medium"
+    
+  qwen3_next:
+    model: "Qwen/Qwen3-Next-80B-A3B-Thinking"
+    base_url: "https://openrouter.ai/api/v1"
+    timeout: 120
+    max_retries: 3
+    response_parser: "qwen_thinking" # Custom parser for handling <think> tags
+    # Recommended settings from docs
+    temperature: 0.6
+    top_p: 0.95
+    max_tokens: 32768

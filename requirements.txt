@@ -1,0 +1,13 @@
+# Python dependencies for the AI Coding Tool MVP
+pytest==7.4.3
+pytest-mock==3.12.0
+chardet==5.2.0
+openai
+python-dotenv
+pyyaml
+pyfakefs==5.9.3
+fastapi
+uvicorn
+jinja2
+chromadb
+gitignore-parser

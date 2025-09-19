@@ -1,0 +1,1095 @@
+{% extends "base.html" %}
+
+{% block title %}ChromaDB Code Explorer - {{ super() }}{% endblock %}
+
+{% block styles %}
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Modern Typography */
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            color: #1e293b;
+        }
+
+        /* Hero Search Section */
+        .search-hero {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #475569 75%, #64748b 100%);
+            padding: 3rem 2rem;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(15, 23, 42, 0.4);
+            color: white;
+            margin-bottom: 3rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .search-hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(168, 85, 247, 0.1) 0%, transparent 50%);
+        }
+
+        .search-hero > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .search-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .search-subtitle {
+            color: #cbd5e1;
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+
+        .search-form {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .search-input-group {
+            display: flex;
+            gap: 1rem;
+            align-items: stretch;
+        }
+
+        .search-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid transparent;
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            font-size: 1.1rem;
+            font-family: 'Inter', sans-serif;
+            color: #1e293b;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+            background: white;
+        }
+
+        .search-input::placeholder {
+            color: #64748b;
+        }
+
+        .search-select {
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid transparent;
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            font-size: 1.1rem;
+            font-family: 'Inter', sans-serif;
+            color: #1e293b;
+            min-width: 140px;
+            backdrop-filter: blur(10px);
+        }
+
+        .search-select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+            background: white;
+        }
+
+        .search-btn {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 1rem 2rem;
+            font-weight: 600;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+        }
+
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
+        }
+
+        .search-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid #f1f5f9;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+        }
+
+        .stat-value {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-label {
+            color: #64748b;
+            font-size: 1rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Results Header */
+        .results-header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .results-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+        }
+
+        .results-subtitle {
+            color: #64748b;
+            font-size: 1.1rem;
+        }
+
+        /* Code Chunk Cards */
+        .chunk-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            margin-bottom: 2rem;
+            overflow: hidden;
+            transition: all 0.4s ease;
+            border: 1px solid #f1f5f9;
+            position: relative;
+        }
+
+        .chunk-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15);
+        }
+
+        .chunk-card:hover .chunk-title {
+            color: #6366f1;
+        }
+
+        /* Header Section */
+        .chunk-header {
+            padding: 1.5rem 2rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .chunk-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+            color: #1e293b;
+            transition: color 0.3s ease;
+            display: inline;
+        }
+
+        .symbol-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.25rem;
+            flex-wrap: wrap;
+        }
+
+        .chunk-type {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chunk-type::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            opacity: 0.8;
+        }
+
+        .chunk-type.function {
+            color: #1e40af;
+        }
+
+        .chunk-type.function::before {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        }
+
+        .chunk-type.class {
+            color: #7c2d92;
+        }
+
+        .chunk-type.class::before {
+            background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
+        }
+
+        .chunk-type span {
+            position: relative;
+            z-index: 1;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: #64748b;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .file-info i {
+            color: #94a3b8;
+            font-size: 0.8rem;
+        }
+
+        .file-path {
+            color: #475569;
+            font-weight: 500;
+        }
+
+        /* Description Panel */
+        .desc-panel {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-left: 4px solid #6366f1;
+            padding: 1.25rem 2rem;
+            margin: 0;
+            color: #334155;
+            font-style: italic;
+            font-size: 1rem;
+            line-height: 1.6;
+            position: relative;
+        }
+
+        .desc-panel::before {
+            content: '"';
+            position: absolute;
+            left: 1rem;
+            top: 1rem;
+            font-size: 2rem;
+            color: rgba(99, 102, 241, 0.2);
+            font-family: Georgia, serif;
+        }
+
+        /* Code Content */
+        .chunk-content {
+            position: relative;
+            background: #0f172a;
+            max-height: 400px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .chunk-content.expanded {
+            max-height: none;
+        }
+
+        .chunk-content pre {
+            margin: 0;
+            padding: 2rem;
+            background: transparent !important;
+            border-radius: 0 !important;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            overflow-x: auto;
+        }
+
+        .chunk-content code {
+            color: #f1f5f9 !important;
+        }
+
+        .expand-btn {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(10px);
+            color: #f1f5f9;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .expand-btn:hover {
+            background: rgba(15, 23, 42, 0.95);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Action Buttons */
+        .action-btn {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            color: #475569;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .action-btn:hover {
+            background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            border: 1px solid #f1f5f9;
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            color: #cbd5e1;
+            margin-bottom: 1.5rem;
+        }
+
+        .empty-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-text {
+            color: #64748b;
+            font-size: 1.1rem;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* Highlighting */
+        .highlight-match {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #1e293b;
+            font-weight: 600;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .search-hero {
+                padding: 2rem 1.5rem;
+            }
+
+            .search-title {
+                font-size: 2rem;
+            }
+
+            .search-input-group {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .search-select {
+                min-width: auto;
+            }
+
+            .chunk-header {
+                padding: 1.25rem 1.5rem;
+            }
+
+            .chunk-title {
+                font-size: 1.25rem;
+            }
+
+            .symbol-meta {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+
+            .file-info {
+                font-size: 0.85rem;
+            }
+
+            .chunk-content pre {
+                padding: 1.5rem;
+                font-size: 0.8rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+        }
+
+        /* Additional intuitive styling */
+        .chunk-type {
+            white-space: nowrap;
+        }
+
+        .file-path {
+            word-break: break-all;
+        }
+
+        /* Better hover states for intuitive interaction */
+        .symbol-meta:hover .chunk-title {
+            color: #6366f1;
+        }
+
+        /* Visual connection between elements */
+        .file-info::before {
+            content: 'in';
+            color: #94a3b8;
+            font-style: italic;
+            margin-right: 0.25rem;
+            font-weight: 400;
+        }
+
+        /* Query Analysis Panel */
+        .query-analysis-panel {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 3rem;
+            border: 1px solid #bae6fd;
+        }
+
+        .analysis-header h3 {
+            color: #0c4a6e;
+            margin: 0;
+            font-weight: 700;
+        }
+
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .analysis-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #e0f2fe;
+        }
+
+        .analysis-label {
+            font-weight: 600;
+            color: #0369a1;
+        }
+
+        .analysis-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 500;
+            color: #0c4a6e;
+        }
+
+        /* Chunk Metadata Styling */
+        .chunk-metadata {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.8rem;
+            color: #64748b;
+            background: #f8fafc;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .meta-item i {
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
+
+        /* Rank and Similarity Badges */
+        .rank-badge {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+
+        .similarity-badge {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+
+        /* Custom Scrollbar */
+        .chunk-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chunk-content::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+
+        .chunk-content::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+
+        .chunk-content::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        /* Loading States */
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .loading-skeleton {
+            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        /* RAG Filtering Controls */
+        .rag-filter-section {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .filter-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            color: #f1f5f9;
+        }
+
+        .filter-description {
+            color: #cbd5e1;
+            font-size: 0.9rem;
+            margin-left: auto;
+        }
+
+        .filter-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-label {
+            color: #f1f5f9;
+            font-weight: 500;
+            margin: 0;
+        }
+
+        .threshold-input {
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            font-size: 1rem;
+            color: #1e293b;
+            width: 80px;
+            text-align: center;
+        }
+
+        .threshold-input:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .threshold-display {
+            color: #f1f5f9;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .apply-filter-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .apply-filter-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        /* RAG Filter Visual States */
+        .chunk-card.rag-included {
+            border: 3px solid #10b981 !important;
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%) !important;
+            transform: scale(1.02);
+            box-shadow: 0 8px 32px rgba(16, 185, 129, 0.3) !important;
+        }
+
+        .chunk-card.rag-excluded {
+            border: 3px solid #ef4444 !important;
+            background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%) !important;
+            opacity: 0.7;
+            transform: scale(0.98);
+            box-shadow: 0 4px 16px rgba(239, 68, 68, 0.2) !important;
+        }
+
+        .chunk-card.rag-included .chunk-header {
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%) !important;
+        }
+
+        .chunk-card.rag-excluded .chunk-header {
+            background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%) !important;
+        }
+
+        .rag-status-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .rag-status-badge.included {
+            background: #10b981;
+            color: white;
+        }
+
+        .rag-status-badge.excluded {
+            background: #ef4444;
+            color: white;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+        <i class="fas fa-exclamation-triangle"></i>
+        <strong>Error:</strong> {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- Hero Search Section -->
+    <div class="search-hero">
+        <h1 class="search-title">
+            <i class="fas fa-search"></i>
+            Semantic Code Search
+        </h1>
+        <p class="search-subtitle">
+            Discover and explore your codebase through natural language queries
+        </p>
+
+        <div class="search-form">
+            <form method="get" action="/chromadb">
+                <div class="search-input-group">
+                    <input type="text"
+                           name="query"
+                           class="search-input"
+                           placeholder="Search for code by meaning (e.g., 'authentication', 'error handling', 'database connection')"
+                           value="{{ query or '' }}">
+                    <select name="limit" class="search-select">
+                        <option value="10" {% if limit == 10 %}selected{% endif %}>10 results</option>
+                        <option value="20" {% if limit == 20 %}selected{% endif %}>20 results</option>
+                        <option value="50" {% if limit == 50 %}selected{% endif %}>50 results</option>
+                        <option value="100" {% if limit == 100 %}selected{% endif %}>100 results</option>
+                    </select>
+                    <button type="submit" class="search-btn">
+                        <i class="fas fa-search"></i>
+                        Search
+                    </button>
+                </div>
+            </form>
+            
+            {% if query %}
+            <!-- RAG Filtering Controls -->
+            <div class="rag-filter-section">
+                <div class="filter-header">
+                    <i class="fas fa-filter"></i>
+                    <strong>RAG Filtering Preview</strong>
+                    <span class="filter-description">Visualize which results would be included in RAG context</span>
+                </div>
+                <div class="filter-controls">
+                    <label for="threshold-input" class="filter-label">Similarity Threshold:</label>
+                    <input type="number" 
+                           id="threshold-input" 
+                           class="threshold-input"
+                           min="0" 
+                           max="1" 
+                           step="0.05" 
+                           value="0.4"
+                           placeholder="0.4">
+                    <span class="threshold-display">40%</span>
+                    <button class="apply-filter-btn" onclick="applyFilter()">
+                        <i class="fas fa-eye"></i> Preview Filter
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if db_path %}
+        <div class="mt-3 opacity-75">
+            <i class="fas fa-database"></i>
+            <span class="ms-2">Database: {{ db_path }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Statistics Grid -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_chunks }}</div>
+            <div class="stat-label">Total Code Chunks</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">
+                {% if query %}
+                    {{ chunks|length }}
+                {% else %}
+                    {{ chunks|length }}/{{ limit }}
+                {% endif %}
+            </div>
+            <div class="stat-label">
+                {% if query %}Search Results{% else %}Showing{% endif %}
+            </div>
+        </div>
+        {% if query_metadata %}
+        <div class="stat-card">
+            <div class="stat-value">{{ "%.3f"|format(query_metadata.avg_similarity) }}</div>
+            <div class="stat-label">Avg Similarity</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ "%.3f"|format(query_metadata.max_similarity) }}</div>
+            <div class="stat-label">Best Match</div>
+        </div>
+        {% endif %}
+        <div class="stat-card">
+            <button class="action-btn" onclick="refreshStats()">
+                <i class="fas fa-sync-alt"></i>
+                Refresh Stats
+            </button>
+        </div>
+    </div>
+    
+    {% if query_metadata %}
+    <!-- Query Analysis Panel -->
+    <div class="query-analysis-panel">
+        <div class="analysis-header">
+            <h3><i class="fas fa-chart-bar"></i> Query Analysis</h3>
+        </div>
+        <div class="analysis-content">
+            <div class="analysis-grid">
+                <div class="analysis-item">
+                    <span class="analysis-label">Query:</span>
+                    <span class="analysis-value">{{ query_metadata.query_text }}</span>
+                </div>
+                <div class="analysis-item">
+                    <span class="analysis-label">Embedding Model:</span>
+                    <span class="analysis-value">{{ query_metadata.embedding_model }}</span>
+                </div>
+                <div class="analysis-item">
+                    <span class="analysis-label">Results Found:</span>
+                    <span class="analysis-value">{{ query_metadata.total_results }}</span>
+                </div>
+                <div class="analysis-item">
+                    <span class="analysis-label">Similarity Range:</span>
+                    <span class="analysis-value">{{ "%.3f"|format(query_metadata.min_similarity) }} - {{ "%.3f"|format(query_metadata.max_similarity) }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Results Header -->
+    {% if chunks %}
+    <div class="results-header">
+        <h2 class="results-title">
+            {% if query %}
+                <i class="fas fa-search"></i> Search Results for "{{ query }}"
+            {% else %}
+                <i class="fas fa-code"></i> Code Chunks
+            {% endif %}
+        </h2>
+        <p class="results-subtitle">
+            {% if query %}
+                Found {{ chunks|length }} result{{ 's' if chunks|length != 1 else '' }} matching your query
+            {% else %}
+                Browse through the indexed code chunks in your project
+            {% endif %}
+        </p>
+    </div>
+
+    {% for chunk in chunks %}
+    <div class="chunk-card" data-chunk-id="{{ chunk.id }}">
+        <div class="chunk-header">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <!-- Symbol type and name on the same line -->
+                    <div class="symbol-meta">
+                        <span class="chunk-type {{ chunk.symbol_type }}">
+                            {% if chunk.symbol_type == 'function' %}
+                                <i class="fas fa-code"></i>
+                            {% else %}
+                                <i class="fas fa-cube"></i>
+                            {% endif %}
+                            <span>{{ chunk.symbol_type }}</span>
+                        </span>
+                        <span class="chunk-title">{{ chunk.symbol_name }}</span>
+                        {% if chunk.rank %}
+                        <span class="rank-badge">#{{ chunk.rank }}</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- File path and metadata -->
+                    <div class="file-info">
+                        <i class="fas fa-folder"></i>
+                        <span class="file-path">{{ chunk.file_path }}</span>
+                        {% if chunk.similarity_score %}
+                        <span class="similarity-badge">{{ "%.1f"|format(chunk.similarity_score * 100) }}% match</span>
+                        {% endif %}
+                    </div>
+                    
+                    {% if chunk.similarity_score or chunk.content_hash %}
+                    <div class="chunk-metadata">
+                        {% if chunk.distance %}
+                        <span class="meta-item">
+                            <i class="fas fa-ruler"></i>
+                            Distance: {{ "%.3f"|format(chunk.distance) }}
+                        </span>
+                        {% endif %}
+                        {% if chunk.similarity_score %}
+                        <span class="meta-item">
+                            <i class="fas fa-percentage"></i>
+                            Similarity: {{ "%.1f"|format(chunk.similarity_score * 100) }}%
+                        </span>
+                        {% endif %}
+                        {% if chunk.content_hash %}
+                        <span class="meta-item">
+                            <i class="fas fa-fingerprint"></i>
+                            Hash: {{ chunk.content_hash[:8] }}...
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Action button -->
+                <div class="ms-3">
+                    <button class="action-btn" onclick="copyToClipboard('{{ chunk.content|replace("'", "\\'") }}')" title="Copy code">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {% if chunk.summary %}
+        <div class="desc-panel">{{ chunk.summary }}</div>
+        {% endif %}
+
+        <div class="chunk-content" id="content-{{ loop.index }}">
+            <pre><code class="language-python">{{ chunk.content }}</code></pre>
+            {% if chunk.content|length > 200 %}
+            <button class="expand-btn" onclick="toggleExpand({{ loop.index }})">
+                <i class="fas fa-chevron-down"></i>
+                Expand Code
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">
+            <i class="fas fa-code"></i>
+        </div>
+        <h3 class="empty-title">
+            {% if query %}
+                No results found for "{{ query }}"
+            {% else %}
+                No code chunks indexed yet
+            {% endif %}
+        </h3>
+        <p class="empty-text">
+            {% if query %}
+                Try a different search query or browse all chunks.
+            {% else %}
+                Run the indexer to populate the database with your codebase.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script>
+        // Initialize syntax highlighting
+        Prism.highlightAll();
+        
+        function toggleExpand(index) {
+            const content = document.getElementById(`content-${index}`);
+            const button = content.querySelector('.expand-btn');
+            
+            content.classList.toggle('expanded');
+            
+            if (content.classList.contains('expanded')) {
+                button.innerHTML = '<i class="fas fa-chevron-up"></i> Collapse';
+            } else {
+                button.innerHTML = '<i class="fas fa-chevron-down"></i> Expand';
+            }
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                // Show toast or notification
+                const toast = document.createElement('div');
+                toast.className = 'position-fixed bottom-0 end-0 p-3';
+                toast.style.zIndex = '1050';
+                toast.innerHTML = `
+                    <div class="toast show" role="alert">
+                        <div class="toast-body">
+                            <i class="fas fa-check-circle text-success"></i> Code copied to clipboard!
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 2000);
+            });
+        }
+        
+        async function refreshStats() {
+            try {
+                const response = await fetch('/api/chromadb/stats');
+                const stats = await response.json();
+                
+                // Update the stats display
+                location.reload(); // Simple reload for now
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+            }
+        }
+        
+        // Add keyboard shortcut for search
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'k') {
+                e.preventDefault();
+                document.querySelector('.search-input').focus();
+            }
+        });
+    </script>
+{% endblock %}

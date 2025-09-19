@@ -1,0 +1,437 @@
+{% extends "base.html" %}
+
+{% block title %}Agent Trace Viewer - {{ super() }}{% endblock %}
+
+{% block navbar_content %}
+    {% if available_files %}
+    <div class="d-flex align-items-center">
+        <div class="dropdown">
+            <button class="btn btn-outline dropdown-toggle" type="button" id="fileDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-file-alt"></i>
+                {% if selected_file %}
+                    {{ selected_file.filename }}
+                {% else %}
+                    Select Trace File
+                {% endif %}
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="fileDropdown">
+                {% for file in available_files %}
+                <li>
+                    <a class="dropdown-item {% if selected_file and selected_file.filename == file.filename %}active{% endif %}"
+                       href="/?file={{ file.full_path | urlencode }}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-bold">{{ file.filename }}</div>
+                                <small class="text-muted">{{ file.user_request[:50] }}...</small>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-muted">
+                                    {{ file.total_calls }} events<br>
+                                    {{ "%.1f"|format(file.total_duration) }}s
+                                </small>
+                            </div>
+                        </div>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    {% if error %}
+    <div class="alert alert-danger" role="alert">
+        <i class="fas fa-exclamation-triangle"></i>
+        <strong>Error:</strong> {{ error }}
+    </div>
+    {% endif %}
+
+    {% if not metrics %}
+    <div class="empty-state">
+        <i class="fas fa-folder-open"></i>
+        <h3>No Trace Data Available</h3>
+        {% if available_files %}
+        <p>Please select a trace file from the dropdown above.</p>
+        {% else %}
+        <p>No trace files found. Run the agent to generate trace data.</p>
+        {% endif %}
+    </div>
+    {% else %}
+
+    <!-- Hero Section -->
+    <div class="dashboard-hero">
+        <div class="hero-content">
+            <h1 class="hero-title">
+                <i class="fas fa-terminal"></i> Agent Task Execution
+            </h1>
+            <p class="hero-subtitle">
+                <i class="fas fa-quote-left"></i>
+                {{ metrics.user_request or "No request found" }}
+                <i class="fas fa-quote-right"></i>
+            </p>
+        </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-layer-group"></i>
+            </div>
+            <div class="stat-value">{{ metrics.context_mode|upper }}</div>
+            <div class="stat-label">Context Mode</div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-value">{{ "%.2f"|format(metrics.total_duration) }}s</div>
+            <div class="stat-label">Total Duration</div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+                <i class="fas fa-brain"></i>
+            </div>
+            <div class="stat-value">{{ metrics.total_calls }}</div>
+            <div class="stat-label">LLM Calls</div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                <i class="fas fa-coins"></i>
+            </div>
+            <div class="stat-value">{{ "{:,}".format(metrics.total_tokens) }}</div>
+            <div class="stat-label">Total Tokens</div>
+        </div>
+        
+        {% if metrics.models_used %}
+        <div class="stat-card">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="stat-value text-small">{{ metrics.models_used[0] }}</div>
+            <div class="stat-label">Model Used</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Timeline -->
+    <div class="timeline-wrapper">
+        <div class="timeline-header">
+            <h2>Execution Timeline</h2>
+            <p>Step-by-step breakdown of the agent's reasoning and actions</p>
+        </div>
+        
+        <div class="timeline-container">
+            {% for event in tool_calls %}
+                
+                {% if event.type == 'task_start' %}
+                <!-- Task Start Event -->
+                <div class="timeline-event fade-in">
+                    <div class="event-marker success">
+                        <i class="fas fa-play"></i>
+                    </div>
+                    <div class="event-content">
+                        <div class="event-header">
+                            <h3 class="event-title">
+                                <i class="fas fa-rocket"></i>
+                                Task Started
+                            </h3>
+                            <div class="event-meta">
+                                <span class="event-time">{{ event.timestamp|strftime('%H:%M:%S') }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="event-section">
+                            <div class="section-header">
+                                <i class="fas fa-comment-dots"></i>
+                                User Request
+                            </div>
+                            <p>{{ event.user_request }}</p>
+                        </div>
+                        
+                        {% if event.context %}
+                        <div class="event-section">
+                            <div class="collapsible-header" onclick="toggleSection(this)">
+                                <i class="fas fa-chevron-right toggle-icon"></i>
+                                <i class="fas fa-layer-group"></i>
+                                <span>Context Built</span>
+                                <span class="badge primary ms-auto">{{ event.context.strategy|upper }}</span>
+                                <span class="metric-pill">
+                                    <i class="fas fa-file-alt"></i>
+                                    {{ event.context.context_length }} chars
+                                </span>
+                                <span class="metric-pill">
+                                    <i class="fas fa-clock"></i>
+                                    {{ "%.2f"|format(event.context.duration) }}s
+                                </span>
+                            </div>
+                            <div class="collapsible-content" style="display: none;">
+                                {% if event.context.context %}
+                                <pre class="code-block">{{ event.context.context }}</pre>
+                                {% else %}
+                                <p class="text-muted">No context data available</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% elif event.type == 'react_cycle' %}
+                <!-- ReAct Cycle Event -->
+                <div class="timeline-event fade-in">
+                    <div class="event-marker">
+                        {{ event.step }}
+                    </div>
+                    <div class="event-content">
+                        <div class="event-header">
+                            <h3 class="event-title">
+                                <i class="fas fa-sync-alt"></i>
+                                ReAct Step {{ event.step }}
+                            </h3>
+                            <div class="event-meta">
+                                <span class="event-time">{{ event.timestamp|strftime('%H:%M:%S') }}</span>
+                                {% if event.llm_response %}
+                                <span class="event-duration">
+                                    {{ "%.2f"|format(event.llm_response.duration) }}s
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Thought Section -->
+                        {% if event.llm_response %}
+                        <div class="thought-bubble">
+                            <div class="section-header mb-3">
+                                <i class="fas fa-brain"></i>
+                                <span>Agent Reasoning</span>
+                                <span class="badge primary ms-auto">{{ event.llm_response.model }}</span>
+                            </div>
+                            <p>{{ event.llm_response.thought or "No reasoning provided" }}</p>
+                            
+                            <div class="d-flex gap-3 mt-3">
+                                <span class="metric-pill">
+                                    <i class="fas fa-sign-in-alt"></i>
+                                    {{ event.llm_response.usage.prompt_tokens }} input
+                                </span>
+                                <span class="metric-pill">
+                                    <i class="fas fa-sign-out-alt"></i>
+                                    {{ event.llm_response.usage.completion_tokens }} output
+                                </span>
+                                <span class="metric-pill">
+                                    <i class="fas fa-coins"></i>
+                                    {{ event.llm_response.usage.total_tokens }} total
+                                </span>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Action Section -->
+                        {% if event.llm_response and event.llm_response.action %}
+                        <div class="action-card">
+                            <div class="section-header">
+                                <i class="fas fa-bolt"></i>
+                                Action Taken
+                                <span class="badge warning ms-auto">{{ event.llm_response.action.tool_name }}</span>
+                            </div>
+                            
+                            {% if event.tool_request %}
+                            <div class="collapsible-header mt-3" onclick="toggleSection(this)">
+                                <i class="fas fa-chevron-right toggle-icon"></i>
+                                <i class="fas fa-cog"></i>
+                                Parameters
+                            </div>
+                            <div class="collapsible-content" style="display: none;">
+                                {% for key, value in event.tool_request.params.items() %}
+                                <div class="d-flex align-items-start mb-2">
+                                    <span class="badge primary me-3">{{ key }}</span>
+                                    <code class="text-small">
+                                        {% if value is string and value|length > 100 %}
+                                        {{ value[:100] }}...
+                                        <button class="btn btn-sm btn-link" onclick="showFullContent('{{ value|replace("'", "\\'") }}')">Show Full</button>
+                                        {% else %}
+                                        {{ value }}
+                                        {% endif %}
+                                    </code>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Final Answer Section -->
+                        {% if event.llm_response and event.llm_response.final_answer %}
+                        <div class="observation-card">
+                            <div class="section-header">
+                                <i class="fas fa-check-circle"></i>
+                                Final Answer
+                            </div>
+                            <p>{{ event.llm_response.final_answer }}</p>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Observation Section -->
+                        {% if event.tool_response %}
+                        <div class="observation-card">
+                            <div class="section-header">
+                                <i class="fas fa-eye"></i>
+                                Observation
+                                <span class="badge success ms-auto">{{ event.tool_response.tool_name }}</span>
+                                <span class="metric-pill">
+                                    <i class="fas fa-clock"></i>
+                                    {{ "%.2f"|format(event.tool_response.duration) }}s
+                                </span>
+                            </div>
+                            
+                            <div class="collapsible-header mt-3" onclick="toggleSection(this)">
+                                <i class="fas fa-chevron-right toggle-icon"></i>
+                                <i class="fas fa-terminal"></i>
+                                Output
+                                <span class="text-muted ms-auto">{{ event.tool_response.output|length }} chars</span>
+                            </div>
+                            <div class="collapsible-content" style="display: none;">
+                                <pre class="code-block">{{ event.tool_response.output }}</pre>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- View Full Request -->
+                        {% if event.llm_request %}
+                        <div class="mt-3">
+                            <button class="btn-outline btn-sm" onclick="toggleLLMRequest(this, {{ event.step }})">
+                                <i class="fas fa-code"></i> View LLM Request
+                            </button>
+                            <div class="mt-3" id="llm-request-{{ event.step }}" style="display: none;">
+                                <h5 class="mb-3">Messages sent to LLM ({{ event.llm_request.message_count }} messages):</h5>
+                                {% for msg in event.llm_request.messages %}
+                                <div class="event-section">
+                                    <div class="badge {% if msg.role == 'system' %}primary{% elif msg.role == 'user' %}success{% else %}warning{% endif %} mb-2">
+                                        {{ msg.role|upper }}
+                                    </div>
+                                    <pre class="code-block">{{ msg.content }}</pre>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% elif event.type == 'task_complete' %}
+                <!-- Task Complete Event -->
+                <div class="timeline-event fade-in">
+                    <div class="event-marker success">
+                        <i class="fas fa-flag-checkered"></i>
+                    </div>
+                    <div class="event-content">
+                        <div class="event-header">
+                            <h3 class="event-title">
+                                <i class="fas fa-check-circle"></i>
+                                Task Completed
+                            </h3>
+                            <div class="event-meta">
+                                <span class="event-time">{{ event.timestamp|strftime('%H:%M:%S') }}</span>
+                                <span class="event-duration">
+                                    {{ "%.2f"|format(event.duration) }}s total
+                                </span>
+                            </div>
+                        </div>
+                        
+                        {% if event.result %}
+                        <div class="event-section">
+                            <div class="section-header">
+                                <i class="fas fa-trophy"></i>
+                                Result
+                            </div>
+                            <div class="task-result-markdown">{{ event.result }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                
+            {% endfor %}
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+
+<!-- Full Content Modal -->
+<div class="modal fade" id="fullContentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Full Content</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="fullContentPre" class="code-block"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+    <script>
+        function toggleSection(header) {
+            const content = header.nextElementSibling;
+            const icon = header.querySelector('.toggle-icon');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.classList.remove('fa-chevron-right');
+                icon.classList.add('fa-chevron-down');
+            } else {
+                content.style.display = 'none';
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-right');
+            }
+        }
+        
+        function toggleLLMRequest(button, step) {
+            const content = document.getElementById(`llm-request-${step}`);
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                button.innerHTML = '<i class="fas fa-code"></i> Hide LLM Request';
+            } else {
+                content.style.display = 'none';
+                button.innerHTML = '<i class="fas fa-code"></i> View LLM Request';
+            }
+        }
+        
+        function showFullContent(content) {
+            document.getElementById('fullContentPre').textContent = content;
+            const modal = new bootstrap.Modal(document.getElementById('fullContentModal'));
+            modal.show();
+        }
+        
+        // Add fade-in animation to timeline events on scroll
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, { threshold: 0.1 });
+        
+        document.querySelectorAll('.timeline-event').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'all 0.5s ease-out';
+            observer.observe(el);
+        });
+    </script>
+{% endblock %}
