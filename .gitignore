@@ -12,7 +12,8 @@ db/
 .coverage/
 .coverage.*
 .coverage.*.pyc
-
+index_state.json
+repomix-output.xml
 
 
 # Python

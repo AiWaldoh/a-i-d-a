@@ -8,6 +8,32 @@ from src.agent.tool_executor import ToolExecutor
 from src.agent.memory import MemoryPort, Message
 from src.agent.prompt_builder import PromptBuilder
 
+# Try to import tiktoken for accurate token counting. If unavailable, fall back to a
+# conservative character-based estimate (4 chars ~= 1 token).
+try:
+    import tiktoken
+except Exception:
+    tiktoken = None
+
+
+def count_tokens_for_model(text: str, model: str = "gpt-4") -> int:
+    """Count tokens for `text` using tiktoken if available.
+
+    Defaults to the encoding appropriate for `model` (gpt-4). If tiktoken is not
+    available, uses a conservative fallback estimate.
+    """
+    if not text:
+        return 0
+    if tiktoken:
+        try:
+            enc = tiktoken.encoding_for_model(model)
+        except Exception:
+            # Fall back to a general-purpose encoding if model-specific encoding fails
+            enc = tiktoken.get_encoding("cl100k_base")
+        return len(enc.encode(text))
+    # Conservative fallback: assume ~4 characters per token
+    return max(1, len(text) // 4)
+
 
 class Agent:
     """
@@ -186,10 +212,14 @@ class Agent:
         return timeout_msg, total_tokens
     
     def _maybe_rollup_summary(self):
+        # NOTE: user requested we do not automatically trim the conversation. We still
+        # compute an accurate token count (using gpt-4 encoding when possible) for
+        # diagnostics, but we do not modify the stored summary.
         events = self.memory.last_events(self.thread_id, 40)
-        tokens = sum(len(m.content) for m in events)
-        if tokens > 6000:
-            recent_text = "\n".join(f"{m.role}: {m.content}" for m in events[-20:])
-            current_summary = self.memory.summary(self.thread_id)
-            new_summary = current_summary + "\n" + recent_text[:1500] if current_summary else recent_text[:1500]
-            self.memory.update_summary(self.thread_id, new_summary)
+        tokens = sum(count_tokens_for_model(m.content, model="gpt-4") for m in events)
+        # Log the token count for diagnostics; do NOT trim or update the summary.
+        try:
+            print(f"🔎 Conversation token count (last {len(events)} events): {tokens} tokens (counted with gpt-4 encoding)")
+        except Exception:
+            # Best-effort: do not let logging interfere with agent operation
+            pass

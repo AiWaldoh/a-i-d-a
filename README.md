@@ -24,6 +24,8 @@ A coding assistant that uses AI to help with code tasks.
    python3 indexer.py
    ```
 
+Is this remotely close to a linux command (function call)
+
 4. Run the agent:
    ```bash
    # Interactive (with persistent chat history)
