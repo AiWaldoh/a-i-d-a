@@ -1,13 +1,13 @@
 import json
 import yaml
-from typing import List, Dict, Any, Optional
+import time
+from typing import List, Dict, Any, Optional, Tuple
 
 from src.llm.client import LLMClient
 from src.agent.tool_executor import ToolExecutor
-from src.agent.prompt_manager import PromptManager
+from src.agent.memory import MemoryPort, Message
+from src.agent.prompt_builder import PromptBuilder
 
-
-# --- Main Agent Class ---
 
 class Agent:
     """
@@ -15,21 +15,17 @@ class Agent:
     and the Reason-Act loop to fulfill user requests.
     """
 
-    def __init__(self, llm_client: LLMClient, tool_executor: ToolExecutor, max_steps: int = 50, context_mode: str = "none"):
-        """
-        Initializes the Agent.
-
-        Args:
-            llm_client: The client for interacting with the Language Model.
-            tool_executor: The executor for running tools.
-            max_steps: The maximum number of steps the agent can take.
-            context_mode: The context strategy mode (none, ast, rag).
-        """
+    def __init__(self, thread_id: str, memory: MemoryPort, llm_client: LLMClient, 
+                 tool_executor: ToolExecutor, prompt_builder: PromptBuilder,
+                 max_steps: int = 50, keep_last: int = 20):
+        self.thread_id = thread_id
+        self.memory = memory
         self.llm_client = llm_client
         self.tool_executor = tool_executor
-        self.prompt_manager = PromptManager(context_mode=context_mode)
+        self.prompt_builder = prompt_builder
         self.max_steps = max_steps
-        self.history: List[Dict[str, Any]] = []
+        self.keep_last = keep_last
+        self._scratch: List[Dict[str, Any]] = []
         self.tools = self._load_tools()
     
     def _load_tools(self) -> List[Dict[str, Any]]:
@@ -55,18 +51,22 @@ class Agent:
             print(f"Error loading tools: {e}")
             return []
 
-    async def run(self, user_prompt: str) -> Optional[str]:
+    async def step(self, user_prompt: str, repo_context: str = "") -> Tuple[str, int]:
         """
         Runs the agent's ReAct loop to process a user prompt.
+        Returns a tuple of (response, tokens_used).
         """
-        # print(f"🚀 Starting agent with request: '{user_prompt}'")
-        self.history.append({"role": "user", "content": user_prompt})
+        self.memory.append(self.thread_id, Message(role="user", content=user_prompt))
+        
+        summary = self.memory.summary(self.thread_id)
+        recent = self.memory.last_events(self.thread_id, self.keep_last)
+        
+        self._scratch = []
+        total_tokens = 0
 
         for i in range(self.max_steps):
-            # print(f"\n--- Step {i + 1}/{self.max_steps} ---")
-
             # 1. Build the structured list of messages for the LLM
-            messages = self.prompt_manager.build_messages(self.history)
+            messages = self.prompt_builder.build(summary, recent, self.tools, user_prompt, repo_context)
             
             # 2. Get the full response object from the LLM with tools
             response = await self.llm_client.get_response(messages=messages, tools=self.tools)
@@ -74,27 +74,33 @@ class Agent:
             if not response or not response.choices:
                 error_message = "❌ Agent failed to get a valid response from the LLM. Stopping."
                 print(error_message)
-                return error_message
+                self.memory.append(self.thread_id, Message(role="assistant", content=error_message))
+                return error_message, total_tokens
+            
+            if response.usage:
+                total_tokens += response.usage.total_tokens
             
             message = response.choices[0].message
             
             # Check if the model wants to use tools
             if hasattr(message, 'tool_calls') and message.tool_calls:
-                # Add the assistant's message with tool calls to history
-                self.history.append({
-                    "role": "assistant",
-                    "content": message.content,
-                    "tool_calls": [
-                        {
-                            "id": tc.id,
-                            "type": tc.type,
-                            "function": {
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments
-                            }
-                        } for tc in message.tool_calls
-                    ]
-                })
+                # Track tool calls in memory
+                tool_calls_data = [
+                    {
+                        "id": tc.id,
+                        "type": tc.type,
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments
+                        }
+                    } for tc in message.tool_calls
+                ]
+                
+                recent.append(Message(
+                    role="assistant",
+                    content=message.content or "",
+                    meta={"tool_calls": tool_calls_data}
+                ))
                 
                 # Execute each tool call
                 for tool_call in message.tool_calls:
@@ -105,11 +111,11 @@ class Agent:
                     except json.JSONDecodeError:
                         error_msg = f"Failed to parse arguments for {tool_name}: {tool_call.function.arguments}"
                         print(f"❌ {error_msg}")
-                        self.history.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call.id,
-                            "content": error_msg
-                        })
+                        recent.append(Message(
+                            role="tool",
+                            content=error_msg,
+                            meta={"tool_call_id": tool_call.id}
+                        ))
                         continue
                     
                     # Extract and display reasoning
@@ -118,29 +124,72 @@ class Agent:
                     print(f"🎬 Action: Executing tool '{tool_name}' with params: {params}")
                     
                     # Execute the tool
+                    tool_start_time = time.time()
                     tool_output = self.tool_executor.execute_tool(tool_name, params)
+                    tool_duration = time.time() - tool_start_time
                     
-                    # Add tool result to history
-                    self.history.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": str(tool_output)
+                    # Track in scratch memory
+                    self._scratch.append({
+                        "action": tool_name,
+                        "args": params,
+                        "observation": str(tool_output),
+                        "duration": tool_duration,
+                        "timestamp": time.time()
                     })
+                    
+                    # Add tool result to recent messages
+                    recent.append(Message(
+                        role="tool",
+                        content=str(tool_output),
+                        meta={"tool_call_id": tool_call.id}
+                    ))
                 
                 # Continue to next iteration to get the model's response after tool execution
                 continue
             
             # If no tool calls, check if there's a regular response
             if message.content:
-                # Add the assistant's response to history
-                self.history.append({"role": "assistant", "content": message.content})
+                # This is the final answer
+                final_response = message.content
                 
-                # For now, treat any non-tool response as final answer
-                # (In a more sophisticated system, you might parse for specific markers)
-                return message.content
+                # Save to memory with scratch trace
+                self.memory.append(self.thread_id, Message(
+                    role="assistant",
+                    content=final_response,
+                    meta={"scratch": self._scratch}
+                ))
+                
+                # Maybe roll up summary if conversation getting long
+                self._maybe_rollup_summary()
+                
+                # Clear scratch for next turn
+                self._scratch = []
+                
+                return final_response, total_tokens
             else:
                 print("⚠️ LLM provided neither tool calls nor content. Stopping.")
-                return "Agent stopped due to empty LLM response."
+                error_msg = "Agent stopped due to empty LLM response."
+                self.memory.append(self.thread_id, Message(
+                    role="assistant",
+                    content=error_msg,
+                    meta={"scratch": self._scratch}
+                ))
+                return error_msg, total_tokens
 
-        # print(f"\n🚫 Agent stopped after reaching max steps ({self.max_steps}).")
-        return "Agent stopped after reaching max steps."
+        # Reached max steps
+        timeout_msg = f"Agent stopped after reaching max steps ({self.max_steps})."
+        self.memory.append(self.thread_id, Message(
+            role="assistant",
+            content=timeout_msg,
+            meta={"scratch": self._scratch}
+        ))
+        return timeout_msg, total_tokens
+    
+    def _maybe_rollup_summary(self):
+        events = self.memory.last_events(self.thread_id, 40)
+        tokens = sum(len(m.content) for m in events)
+        if tokens > 6000:
+            recent_text = "\n".join(f"{m.role}: {m.content}" for m in events[-20:])
+            current_summary = self.memory.summary(self.thread_id)
+            new_summary = current_summary + "\n" + recent_text[:1500] if current_summary else recent_text[:1500]
+            self.memory.update_summary(self.thread_id, new_summary)

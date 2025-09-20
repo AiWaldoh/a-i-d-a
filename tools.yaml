@@ -93,3 +93,20 @@ tools:
           description: "Content to write to the file"
       required: ["reasoning", "file_path", "content"]
     category: file_operations
+  - name: install_app
+    description: "Install apt packages non-interactively with sudo"
+    schema:
+      type: object
+      properties:
+        reasoning:
+          type: string
+          description: "Why installing these packages helps achieve the current goal"
+        packages:
+          description: "Package name(s) to install. Can be a single string or an array of strings"
+          anyOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+      required: ["reasoning", "packages"]
+    category: system_management
