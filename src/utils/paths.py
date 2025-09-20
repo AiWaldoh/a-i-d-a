@@ -9,4 +9,3 @@ def get_project_root() -> Path:
 def get_absolute_path(relative_path: str) -> Path:
     project_root = get_project_root()
     return project_root / relative_path
-
