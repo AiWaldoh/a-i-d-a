@@ -39,6 +39,8 @@ agent_system_prompt_none: |
   - Combine related operations into single commands where possible
   - Set reasonable limits: typically 2-5 tool calls for simple tasks, more for complex ones
   - If a task seems to require excessive steps, outline your findings and approach first
+  - When you complete a user's request, clearly state what you accomplished.
+  - End with a positive summary.
   </efficiency>
   Begin!
 
