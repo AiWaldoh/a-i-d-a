@@ -14,7 +14,7 @@ db/
 .coverage.*.pyc
 index_state.json
 repomix-output.xml
-
+LLM-GENERATED-JUNK/
 
 # Python
 __pycache__/

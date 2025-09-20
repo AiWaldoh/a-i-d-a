@@ -36,6 +36,28 @@ def count_tokens_for_model(text: str, model: str = "gpt-4") -> int:
     return max(1, len(text) // 4)
 
 
+def format_params_with_color(params: Dict[str, Any]) -> str:
+    def format_value(v):
+        if isinstance(v, str):
+            return f"\033[93m'{v}'\033[0m"  # Yellow for strings
+        elif isinstance(v, bool):  # Check bool before int/float since bool is subclass of int
+            return f"\033[95m{v}\033[0m"  # Magenta for booleans
+        elif isinstance(v, (int, float)):
+            return f"\033[96m{v}\033[0m"  # Cyan for numbers
+        elif isinstance(v, dict):
+            return "{" + ", ".join([f"\033[94m{k}\033[0m: {format_value(v2)}" for k, v2 in v.items()]) + "}"
+        elif isinstance(v, list):
+            return "[" + ", ".join([format_value(item) for item in v]) + "]"
+        else:
+            return str(v)
+    
+    formatted_items = []
+    for k, v in params.items():
+        formatted_items.append(f"\033[94m{k}\033[0m: {format_value(v)}")
+    
+    return "{" + ", ".join(formatted_items) + "}"
+
+
 class Agent:
     """
     The main orchestrator for the ReAct agent. It manages the conversation
@@ -147,7 +169,8 @@ class Agent:
                     
                     # Extract and display reasoning
                     reasoning = params.get('reasoning', 'No reasoning provided')
-                    print(f"🎬 Action: Executing tool '{tool_name}' with params: {params}")
+                    colored_params = format_params_with_color(params)
+                    print(f"🎬 \033[92mAction\033[0m: Executing tool \033[91m'{tool_name}'\033[0m with params: {colored_params}")
                     
                     # Execute the tool
                     tool_start_time = time.time()
