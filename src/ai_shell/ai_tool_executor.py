@@ -24,16 +24,19 @@ class AIShellToolExecutor(ToolExecutor):
                 else:
                     formatted_output += "❌ COMMAND FAILED\n"
                 
+                # Handle output based on success/failure
                 if output and output.strip():
-                    formatted_output += f"STDOUT:\n{output.strip()}\n"
+                    if exit_code == 0:
+                        formatted_output += f"OUTPUT:\n{output.strip()}\n"
+                    else:
+                        formatted_output += f"ERROR OUTPUT:\n{output.strip()}\n"
                 else:
                     if exit_code == 0:
-                        formatted_output += "STDOUT: (no output - command completed silently)\n"
+                        formatted_output += "OUTPUT: (no output - command completed silently)\n"
+                    else:
+                        formatted_output += "ERROR OUTPUT: (no error message)\n"
                 
-                if exit_code != 0:
-                    formatted_output += f"STDERR:\nCommand failed\n"
-                
-                formatted_output += f"Return Code: {exit_code}"
+                formatted_output += f"Exit Code: {exit_code}"
                 
                 return formatted_output.strip()
         

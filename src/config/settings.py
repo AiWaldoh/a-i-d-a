@@ -50,6 +50,7 @@ class AppSettings:
     
     # Agent configuration
     MAX_STEPS = int(os.getenv("MAX_STEPS", _yaml.get("max_steps", 10)))
+    KEEP_LAST = int(os.getenv("KEEP_LAST", _yaml.get("keep_last", 20)))
     
     # Embedding configuration
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", _yaml.get("embedding", {}).get("model", "all-MiniLM-L6-v2"))

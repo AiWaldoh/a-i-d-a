@@ -66,14 +66,16 @@ class Agent:
 
     def __init__(self, thread_id: str, memory: MemoryPort, llm_client: LLMClient, 
                  tool_executor: ToolExecutor, prompt_builder: PromptBuilder,
-                 max_steps: int = 50, keep_last: int = 20):
+                 max_steps: int = None, keep_last: int = None):
+        from src.config.settings import AppSettings
+        
         self.thread_id = thread_id
         self.memory = memory
         self.llm_client = llm_client
         self.tool_executor = tool_executor
         self.prompt_builder = prompt_builder
-        self.max_steps = max_steps
-        self.keep_last = keep_last
+        self.max_steps = max_steps if max_steps is not None else AppSettings.MAX_STEPS
+        self.keep_last = keep_last if keep_last is not None else AppSettings.KEEP_LAST
         self._scratch: List[Dict[str, Any]] = []
         self.tools = self._load_tools()
     

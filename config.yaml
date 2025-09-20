@@ -1,5 +1,6 @@
 active_model: "gpt_5"
 max_steps: 50  # Maximum number of agent steps before stopping
+keep_last: 20  # Number of recent messages to keep in LLM context
 
 # Embedding configuration for RAG system
 embedding:
