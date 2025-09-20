@@ -1,0 +1,65 @@
+#!/bin/bash
+
+# A script to rewrite author information for all commits in a git repository
+# using the modern `git-filter-repo` tool.
+
+set -euo pipefail
+
+# --- Usage ---
+function display_usage() {
+    echo "Usage: $(basename "$0") \"<OLD_NAME>\" \"<OLD_EMAIL>\" \"<NEW_NAME>\" \"<NEW_EMAIL>\""
+    echo "Example: $(basename "$0") 'Kevin Roy' 'someone@somewhere.com' 'AiWaldoh' 'ai@example.com'"
+    exit 1
+}
+
+if [ "$#" -ne 4 ] || [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    display_usage
+fi
+
+OLD_NAME="$1"
+OLD_EMAIL="$2"
+NEW_NAME="$3"
+NEW_EMAIL="$4"
+
+# --- Check dependencies ---
+if ! command -v git-filter-repo &> /dev/null; then
+    echo "Error: 'git-filter-repo' is not installed." >&2
+    echo "Please install it first. On most systems, you can use pip:" >&2
+    echo "  pip install git-filter-repo" >&2
+    exit 1
+fi
+
+# --- Check if inside a git repository ---
+if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+    echo "Error: This command must be run from within a git repository." >&2
+    exit 1
+fi
+
+# --- Confirmation ---
+echo "This script will permanently rewrite the history of the current git repository."
+printf "FROM: \"%s <%s>\"\n" "$OLD_NAME" "$OLD_EMAIL"
+printf "TO:   \"%s <%s>\"\n\n" "$NEW_NAME" "$NEW_EMAIL"
+
+read -p "This is a destructive operation. Are you sure you want to continue? (y/n) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Aborted by user."
+    exit 1
+fi
+
+# --- Create a temporary mailmap file ---
+MAILMAP_FILE=$(mktemp)
+# The mailmap format is: New Name <new@email.com> Old Name <old@email.com>
+printf "%s <%s> %s <%s>\n" "$NEW_NAME" "$NEW_EMAIL" "$OLD_NAME" "$OLD_EMAIL" > "$MAILMAP_FILE"
+
+# Ensure cleanup happens on exit
+trap 'rm -f "$MAILMAP_FILE"' EXIT
+
+# --- Rewrite history ---
+echo "Rewriting history... this may take a while."
+git filter-repo --mailmap "$MAILMAP_FILE" --force
+
+echo ""
+echo "History rewritten successfully."
+echo "Please review the changes with 'git log'."
+echo "When ready, force-push to update the remote repository (e.g., 'git push --force')."

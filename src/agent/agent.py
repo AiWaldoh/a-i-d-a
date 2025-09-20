@@ -7,6 +7,7 @@ from src.llm.client import LLMClient
 from src.agent.tool_executor import ToolExecutor
 from src.agent.memory import MemoryPort, Message
 from src.agent.prompt_builder import PromptBuilder
+from src.utils.paths import get_absolute_path
 
 # Try to import tiktoken for accurate token counting. If unavailable, fall back to a
 # conservative character-based estimate (4 chars ~= 1 token).
@@ -57,7 +58,7 @@ class Agent:
     def _load_tools(self) -> List[Dict[str, Any]]:
         """Load tools from tools.yaml and convert to OpenAI format."""
         try:
-            with open("tools.yaml", 'r') as f:
+            with open(get_absolute_path("tools.yaml"), 'r') as f:
                 tools_config = yaml.safe_load(f)
             
             openai_tools = []
@@ -217,9 +218,4 @@ class Agent:
         # diagnostics, but we do not modify the stored summary.
         events = self.memory.last_events(self.thread_id, 40)
         tokens = sum(count_tokens_for_model(m.content, model="gpt-4") for m in events)
-        # Log the token count for diagnostics; do NOT trim or update the summary.
-        try:
-            print(f"🔎 Conversation token count (last {len(events)} events): {tokens} tokens (counted with gpt-4 encoding)")
-        except Exception:
-            # Best-effort: do not let logging interfere with agent operation
-            pass
+        # Token count tracked internally - removed verbose logging

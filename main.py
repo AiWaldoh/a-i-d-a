@@ -14,12 +14,13 @@ from src.trace.orchestrator import TaskOrchestrator
 from src.agent.session import ChatSession
 from src.trace.proxies import LLMProxy, ToolProxy
 from src.rag.strategy import ContextStrategy, NullContextStrategy, ASTContextStrategy, RAGContextStrategy
+from src.utils.paths import get_absolute_path
 
 async def main():
     """
     The main entry point for the agent application.
     """
-    parser = argparse.ArgumentParser(description="City Code Agent - Your shitty code assistant")
+    parser = argparse.ArgumentParser(description="A.I.D.A - AI Intelligent Development Assistant")
     parser.add_argument("--context-mode", choices=["none", "ast", "rag"], default="none",
                         help="Context strategy to use (default: none)")
     parser.add_argument("--prompt", type=str, default=None,
@@ -28,11 +29,11 @@ async def main():
 
     # --- Setup Event Logging ---
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    trace_file = f"tmp/trace_{timestamp}.jsonl"
-    os.makedirs("tmp", exist_ok=True)
+    tmp_dir = get_absolute_path("tmp")
+    trace_file = str(tmp_dir / f"trace_{timestamp}.jsonl")
+    os.makedirs(tmp_dir, exist_ok=True)
     
-    print(f"📊 Logging trace to: {trace_file}")
-    print(f"🔧 Context mode: {args.context_mode}")
+    # Removed verbose logging messages for cleaner output
 
     # Create the event sink and orchestrator
     event_sink = FileEventSink(trace_file)
@@ -40,12 +41,11 @@ async def main():
 
     if args.prompt:
         # Single prompt mode
-        print(f"🚀 Executing single prompt: '{args.prompt}'")
         result = await orchestrator.execute_task(args.prompt)
-        print(f"\n✅ Task completed. Result: {result}")
+        print(result)
     else:
         # Interactive chat mode with persistent session
-        print("💬 Welcome to the City Code Agent! Type 'exit' or 'quit' to end the session.")
+        print("Welcome to A.I.D.A. Type 'exit' or 'quit' to end the session.")
         
         # Create context strategy based on mode
         if args.context_mode == "ast":
@@ -81,7 +81,7 @@ async def main():
             context_mode=args.context_mode
         )
         
-        print(f"📝 Session ID: {session.thread_id}")
+        # Removed session ID display for cleaner output
         
         # Emit session started event
         event_sink.emit(TaskEvent(
@@ -96,10 +96,10 @@ async def main():
         
         while True:
             try:
-                prompt = await asyncio.to_thread(input, "👨‍💻 Your request: ")
+                prompt = await asyncio.to_thread(input, "> ")
                 if prompt.lower() in ["exit", "quit"]:
-                    print(f"\n📊 Total tokens used in session: {session.total_tokens}")
-                    print("👋 Goodbye! Thanks for visiting City Code.")
+                    print(f"\nTotal tokens: {session.total_tokens}")
+                    print("\nGoodbye.")
                     break
                 
                 # Create a new trace_id for this request
@@ -153,8 +153,8 @@ async def main():
                         }
                     ))
                     
-                    print(f"\n🤖 City Code Agent:\n{result}\n")
-                    print(f"📊 Tokens this turn: {tokens_used} | Total session tokens: {session.total_tokens}")
+                    print(f"\nA.I.D.A:\n{result}")
+                    print(f"\nTokens: {tokens_used} (Total: {session.total_tokens})")
                 
                 except Exception as e:
                     # Emit task_failed event
@@ -171,11 +171,11 @@ async def main():
                     print(f"\n❌ Error: {str(e)}")
 
             except (KeyboardInterrupt, EOFError):
-                print(f"\n📊 Total tokens used in session: {session.total_tokens}")
-                print("\n👋 Goodbye! Thanks for visiting City Code.")
+                print(f"\nTotal tokens: {session.total_tokens}")
+                print("\nGoodbye.")
                 break
     
-    print(f"📊 Trace saved to: {trace_file}")
+    # Trace file saved
 
 
 if __name__ == "__main__":

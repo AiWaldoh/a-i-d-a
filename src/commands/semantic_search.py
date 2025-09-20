@@ -1,6 +1,7 @@
 import chromadb.utils.embedding_functions as embedding_functions
 
 from src.rag.vector_store import VectorStore
+from src.utils.paths import get_absolute_path
 
 
 class Command:
@@ -14,7 +15,7 @@ class Command:
         try:
             embedding_function = embedding_functions.DefaultEmbeddingFunction()
             vector_store = VectorStore(
-                db_path="db",
+                db_path=str(get_absolute_path("db")),
                 collection_name="codebase",
                 embedding_function=embedding_function
             )

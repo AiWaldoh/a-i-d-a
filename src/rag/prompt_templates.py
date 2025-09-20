@@ -2,10 +2,15 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any
 
+from src.utils.paths import get_absolute_path
+
 
 class PromptTemplateManager:
-    def __init__(self, file_path: str = "prompts.yaml"):
-        self.file_path = Path(file_path)
+    def __init__(self, file_path: str = None):
+        if file_path is None:
+            self.file_path = get_absolute_path("prompts.yaml")
+        else:
+            self.file_path = Path(file_path)
         self.templates = self._load_templates()
     
     def _load_templates(self) -> Dict[str, str]:

@@ -2,6 +2,7 @@ from typing import List, Dict, Any
 import yaml
 
 from src.agent.memory import Message
+from src.utils.paths import get_absolute_path
 
 
 class PromptBuilder:
@@ -11,7 +12,7 @@ class PromptBuilder:
     
     def _load_prompts(self):
         try:
-            with open("prompts.yaml", 'r') as f:
+            with open(get_absolute_path("prompts.yaml"), 'r') as f:
                 self.prompts = yaml.safe_load(f)
         except Exception as e:
             print(f"Error loading prompts: {e}")
@@ -54,10 +55,11 @@ class PromptBuilder:
         return messages
     
     def _build_system_prompt(self, tools: List[Dict[str, Any]], repo_context: str) -> str:
-        base_prompt = self.prompts.get("agent", {}).get("system_prompt", "You are a helpful AI assistant.")
+        prompt_key = f"agent_system_prompt_{self.context_mode}"
+        base_prompt = self.prompts.get(prompt_key, "You are a helpful AI assistant.")
         
         if self.context_mode == "ast" and repo_context:
-            base_prompt = f"{repo_context}\n\n{base_prompt}"
+            base_prompt = base_prompt.replace("{repo_map}", repo_context)
         
         return base_prompt
 

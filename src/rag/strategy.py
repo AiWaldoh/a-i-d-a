@@ -4,6 +4,7 @@ from typing import Optional
 from src.agent.repo_map import RepoMapBuilder
 from src.rag.embedding_factory import get_embedding_function
 from src.config.settings import AppSettings
+from src.utils.paths import get_absolute_path
 
 
 class ContextStrategy(ABC):
@@ -26,8 +27,11 @@ class ASTContextStrategy(ContextStrategy):
 
 
 class RAGContextStrategy(ContextStrategy):
-    def __init__(self, db_path: str = "db", collection_name: str = "codebase"):
-        self.db_path = db_path
+    def __init__(self, db_path: str = None, collection_name: str = "codebase"):
+        if db_path is None:
+            self.db_path = str(get_absolute_path("db"))
+        else:
+            self.db_path = db_path
         self.collection_name = collection_name
         self._vector_store = None
     
