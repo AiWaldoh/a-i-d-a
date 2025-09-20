@@ -147,7 +147,6 @@ class Agent:
                     
                     # Extract and display reasoning
                     reasoning = params.get('reasoning', 'No reasoning provided')
-                    print(f"🤔 Reasoning: {reasoning}")
                     print(f"🎬 Action: Executing tool '{tool_name}' with params: {params}")
                     
                     # Execute the tool

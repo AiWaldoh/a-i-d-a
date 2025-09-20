@@ -19,14 +19,31 @@ A coding assistant that uses AI to help with code tasks.
    - `OPENROUTER_API_KEY` or
    - `OPENAI_API_KEY`
 
-3. Index your code:
+3. Make the `aida` command executable:
+   ```bash
+   chmod +x aida
+   ```
+
+4. Index your code (optional for rag):
    ```bash
    python3 indexer.py
    ```
 
-Is this remotely close to a linux command (function call)
-
-4. Run the agent:
+5. Run the agent:
+   
+   Using the `aida` command (recommended):
+   ```bash
+   # Interactive (with persistent chat history)
+   ./aida
+   
+   # One task
+   ./aida --prompt "task description"
+   
+   # With context mode
+   ./aida --context-mode rag
+   ```
+   
+   Or using Python directly:
    ```bash
    # Interactive (with persistent chat history)
    python3 main.py
@@ -43,7 +60,7 @@ Is this remotely close to a linux command (function call)
    - Token usage tracking per turn and total
    - Full event tracing for all interactions
 
-5. Run web interface:
+6. Run web interface:
    ```bash
    python3 -m web_app.main
    ```
