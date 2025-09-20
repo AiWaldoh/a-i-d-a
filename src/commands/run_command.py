@@ -1,5 +1,4 @@
 import subprocess
-import shlex
 
 class Command:
     """
@@ -11,8 +10,10 @@ class Command:
         Executes a shell command and returns its output.
         
         Args:
-            params: A dictionary containing the command to execute.
-                    - command (str): The shell command to run.
+            params: A dictionary containing:
+                    - command (str): The shell command to run (supports shell operators like &&, ||, |)
+                    - run_in_directory (str, optional): Directory to execute the command in
+                    - timeout (int, optional): Timeout in seconds (default: 30)
         
         Returns:
             The formatted output of the command, including stdout, stderr, and return code.
@@ -21,28 +22,38 @@ class Command:
         if not command:
             return "Error: No command was provided to run_command."
             
+        # Check if we have a run_in_directory parameter
+        run_in_directory = params.get("run_in_directory")
+        
         try:
+            # Always use shell=True - simple and works with all commands
             process = subprocess.run(
-                shlex.split(command),
+                command,
+                shell=True,
                 capture_output=True,
                 text=True,
                 check=False,
-                timeout=90
+                timeout=params.get("timeout", 30),
+                cwd=run_in_directory
             )
             
             output = ""
             if process.stdout:
-                output += f"STDOUT:\n{process.stdout.strip()}\n"
+                output += f"{process.stdout.strip()}\n"
             if process.stderr:
-                output += f"STDERR:\n{process.stderr.strip()}\n"
+                output += f"ERROR OUTPUT:\n{process.stderr.strip()}\n"
             
-            output += f"Return Code: {process.returncode}"
+            if process.returncode != 0:
+                output += f"Exit Code: {process.returncode}"
+                
+            # Mark as failed if non-zero exit code
+            if process.returncode != 0:
+                output = f"❌ COMMAND FAILED\n{output}"
             
             return output.strip()
 
-        except FileNotFoundError:
-            return f"Error: The command '{command.split()[0]}' was not found."
         except subprocess.TimeoutExpired:
-            return "Error: The command timed out after 90 seconds."
+            timeout_val = params.get("timeout", 30)
+            return f"Error: The command timed out after {timeout_val} seconds."
         except Exception as e:
             return f"An unexpected error occurred while running the command: {str(e)}"

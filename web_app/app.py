@@ -194,12 +194,13 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
         
         # Group events into logical cycles
         grouped_events = []
-        step = 0
+        task_step = 0  # Step counter within current task
         
         # Track current cycle events
         current_cycle = []
         llm_request_data = None
         context_data = None
+        in_task = False  # Track if we're currently in a task
         
         for event in events:
             event_type = event.get('event_type')
@@ -207,10 +208,11 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
             data = event.get('data', {})
             
             if event_type == 'task_started':
-                step += 1
+                task_step = 0  # Reset step counter for new task
+                in_task = True
                 grouped_events.append({
                     'type': 'task_start',
-                    'step': step,
+                    'step': task_step,
                     'timestamp': timestamp,
                     'user_request': data.get('user_request', ''),
                     'events': [event]
@@ -232,10 +234,10 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
                 # Start a new cycle
                 if current_cycle:
                     # Finish previous cycle if exists
-                    step += 1
+                    task_step += 1
                     grouped_events.append({
                         'type': 'react_cycle',
-                        'step': step,
+                        'step': task_step,
                         'events': current_cycle
                     })
                 current_cycle = [event]
@@ -250,10 +252,10 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
             elif event_type == 'tool_response' and current_cycle:
                 current_cycle.append(event)
                 # Complete the cycle
-                step += 1
+                task_step += 1
                 grouped_events.append({
                     'type': 'react_cycle',
-                    'step': step,
+                    'step': task_step,
                     'events': current_cycle,
                     'timestamp': current_cycle[0].get('timestamp', '')
                 })
@@ -262,23 +264,23 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
             elif event_type == 'task_completed':
                 # Finish any pending cycle
                 if current_cycle:
-                    step += 1
+                    task_step += 1
                     grouped_events.append({
                         'type': 'react_cycle',
-                        'step': step,
+                        'step': task_step,
                         'events': current_cycle
                     })
                     current_cycle = []
                 
-                step += 1
                 grouped_events.append({
                     'type': 'task_complete',
-                    'step': step,
+                    'step': 'Final',
                     'timestamp': timestamp,
                     'duration': data.get('duration_seconds', 0),
                     'result': data.get('result', ''),
                     'events': [event]
                 })
+                in_task = False
         
         # Process grouped events into display format
         tool_calls = []

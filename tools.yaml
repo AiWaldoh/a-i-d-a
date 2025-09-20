@@ -10,9 +10,9 @@ tools:
         command:
           type: string
           description: "Command to execute"
-        working_directory:
+        run_in_directory:
           type: string
-          description: "Working directory for command execution"
+          description: "Directory to execute the command in"
         timeout:
           type: integer
           description: "Timeout in seconds"
@@ -94,7 +94,7 @@ tools:
       required: ["reasoning", "file_path", "content"]
     category: file_operations
   - name: install_app
-    description: "Install apt packages non-interactively with sudo"
+    description: "Install a program on the current system non-interactively with sudo"
     schema:
       type: object
       properties:
@@ -110,3 +110,27 @@ tools:
                 type: string
       required: ["reasoning", "packages"]
     category: system_management
+  - name: file_search
+    description: "Fast file and directory search using glob patterns"
+    schema:
+      type: object
+      properties:
+        reasoning:
+          type: string
+          description: "Why searching for these files helps achieve the current goal"
+        pattern:
+          type: string
+          description: "Glob pattern to search for (e.g., '*.py', 'test_*.js', 'ai-coder-v3')"
+        search_dir:
+          type: string
+          description: "Directory to search in (defaults to current directory)"
+        include_dirs:
+          type: boolean
+          description: "Include directories in results (default: false, only files)"
+          default: false
+        max_results:
+          type: integer
+          description: "Maximum number of results to return"
+          default: 100
+      required: ["reasoning", "pattern"]
+    category: search

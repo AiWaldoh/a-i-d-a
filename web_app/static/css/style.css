@@ -694,3 +694,106 @@ footer {
     background: var(--primary);
     color: white;
 }
+
+/* Enhanced code block display for commands */
+.code-block.command-display {
+    background: #0f172a;
+    color: #f1f5f9;
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    font-family: 'Fira Code', 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    position: relative;
+    border: 1px solid #1e293b;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.code-block.command-display::before {
+    content: '$';
+    position: absolute;
+    left: 0.75rem;
+    color: #10b981;
+    font-weight: 600;
+}
+
+.code-block.command-display .command-text {
+    margin-left: 1.25rem;
+}
+
+/* Tool-specific icons and styling */
+.tool-icon {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary);
+    margin-right: 0.5rem;
+}
+
+.tool-icon.terminal {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.tool-icon.file {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+}
+
+.tool-icon.search {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+}
+
+/* Command copy button */
+.command-copy-btn {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #94a3b8;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.command-copy-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #cbd5e1;
+}
+
+.command-copy-btn.copied {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+/* Parameter table styling */
+.table-borderless td {
+    vertical-align: top;
+    padding: 0.5rem 0;
+}
+
+.table-borderless td:first-child {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.table-borderless code {
+    word-break: break-all;
+}
+
+.table-borderless pre.code-block {
+    margin: 0;
+    max-width: 100%;
+}

@@ -4,6 +4,7 @@ import signal
 import glob
 import asyncio
 import re
+import uuid
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -13,7 +14,13 @@ from src.ai_shell.executor import CommandExecutor
 from src.ai_shell.config import ai_shell_config
 from src.ai_shell.ai_tool_executor import AIShellToolExecutor
 from src.agent.session import ChatSession
+from src.agent.memory import InMemoryMemory
+from src.agent.prompt_builder import PromptBuilder
 from src.config.settings import AppSettings
+from src.llm.client import LLMClient
+from src.trace.proxies import LLMProxy, ToolProxy
+from src.trace.events import TraceContext, FileEventSink, TaskEvent
+from src.utils.paths import get_absolute_path
 
 
 class AIShell:
@@ -27,17 +34,59 @@ class AIShell:
         # Store project root for later use
         project_root = os.environ.get('AI_CODER_PROJECT_ROOT', os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
         
-        self.classifier = CommandClassifier()
+        # Create trace file for this session using the same pattern as main.py
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        tmp_dir = get_absolute_path("tmp")
+        trace_file = str(tmp_dir / f"trace_{timestamp}.jsonl")
+        os.makedirs(tmp_dir, exist_ok=True)
+        self.event_sink = FileEventSink(trace_file)
+        
+        # Create session ID
+        self.session_id = str(uuid.uuid4())
+        
+        # Emit session_started event like main.py does
+        self.event_sink.emit(TaskEvent(
+            event_type="session_started",
+            trace_id=self.session_id,
+            timestamp=datetime.now(),
+            data={
+                "session_id": self.session_id,
+                "context_mode": "none"
+            }
+        ))
+        
         self.executor = CommandExecutor()
         
-        # Create custom tool executor that integrates with our command executor
-        tool_executor = AIShellToolExecutor(command_executor=self.executor)
+        # Create real clients
+        real_llm_client = LLMClient()
+        real_tool_executor = AIShellToolExecutor()
         
-        # Create chat session (this will use get_absolute_path to find tools.yaml)
-        self.chat_session = ChatSession(
-            context_mode="none",
-            tool_executor=tool_executor
+        # Create a separate LLM client for the classifier
+        classifier_llm_client = LLMClient(AppSettings.get_llm_config("gpt_4_1"))
+        
+        # For classifier, we create a simple trace context
+        classifier_trace_context = TraceContext(
+            trace_id=self.session_id,
+            user_request="AI Shell Classifier",
+            start_time=datetime.now()
         )
+        
+        # Wrap classifier client in proxy
+        classifier_llm_proxy = LLMProxy(classifier_llm_client, classifier_trace_context, self.event_sink)
+        
+        # Create classifier with proxied client
+        self.classifier = CommandClassifier(llm_client=classifier_llm_proxy)
+        
+        # Create session components (these will be recreated per task)
+        memory = InMemoryMemory()
+        prompt_builder = PromptBuilder(context_mode="none")
+        self.session_memory = memory
+        self.session_prompt_builder = prompt_builder
+        self.real_llm_client = real_llm_client
+        self.real_tool_executor = real_tool_executor
+        
+        # Track total tokens like main.py
+        self.total_tokens = 0
         
         self.running = True
         self.config = ai_shell_config
@@ -47,6 +96,7 @@ class AIShell:
         
         print("✅ AI Shell ready! Type commands or ask questions naturally.")
         print("💡 Examples: 'ls', 'what files are here?', 'fix the last error'")
+        print(f"📊 Session trace: {trace_file}")
         print("🚪 Type 'exit' or Ctrl-D to quit\n")
     
     def _setup_readline(self):
@@ -202,6 +252,22 @@ class AIShell:
     
     async def _ask_ai(self, prompt: str):
         
+        # Create a new trace_id for this request (like main.py does)
+        task_trace_id = str(uuid.uuid4())
+        task_start_time = datetime.now()
+        
+        # Emit task_started event for consistency
+        self.event_sink.emit(TaskEvent(
+            event_type="task_started",
+            trace_id=task_trace_id,
+            timestamp=task_start_time,
+            data={
+                "user_request": prompt,
+                "context_mode": "none",
+                "session_id": self.session_id
+            }
+        ))
+        
         try:
             context = self._build_context_from_history()
             
@@ -210,14 +276,59 @@ class AIShell:
             else:
                 full_prompt = prompt
             
-            response, tokens_used = await self.chat_session.ask(full_prompt)
+            # Create trace context for this specific request
+            trace_context = TraceContext(
+                trace_id=task_trace_id,
+                user_request=prompt,
+                start_time=task_start_time
+            )
+            
+            # Create proxied clients for this request
+            llm_proxy = LLMProxy(self.real_llm_client, trace_context, self.event_sink)
+            tool_proxy = ToolProxy(self.real_tool_executor, trace_context, self.event_sink)
+            
+            # Create chat session with proxied clients
+            chat_session = ChatSession(
+                memory=self.session_memory,
+                llm_client=llm_proxy,
+                tool_executor=tool_proxy,
+                prompt_builder=self.session_prompt_builder,
+                thread_id=self.session_id,
+                context_mode="none"
+            )
+            
+            response, tokens_used = await chat_session.ask(full_prompt)
+            self.total_tokens += tokens_used
             
             print(f"\n🤖 {response}")
             
             if self.config.show_token_usage:
-                print(f"\n💡 Tokens used: {tokens_used}")
+                print(f"\n💡 Tokens used: {tokens_used} (Total: {self.total_tokens})")
+            
+            # Emit task_completed event
+            self.event_sink.emit(TaskEvent(
+                event_type="task_completed",
+                trace_id=task_trace_id,
+                timestamp=datetime.now(),
+                data={
+                    "result": response,
+                    "tokens_used": tokens_used,
+                    "duration_seconds": (datetime.now() - task_start_time).total_seconds()
+                }
+            ))
             
         except Exception as e:
+            # Emit task_failed event
+            self.event_sink.emit(TaskEvent(
+                event_type="task_failed",
+                trace_id=task_trace_id,
+                timestamp=datetime.now(),
+                data={
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "duration_seconds": (datetime.now() - task_start_time).total_seconds()
+                }
+            ))
             print(f"❌ AI request failed: {e}")
             if self.config.debug_mode:
                 import traceback
@@ -317,6 +428,7 @@ Tips:
                 await self._process_input(user_input)
                 
             except EOFError:
+                print(f"\n💡 Total tokens: {self.total_tokens}")
                 print("\n👋 Goodbye!")
                 break
             except KeyboardInterrupt:

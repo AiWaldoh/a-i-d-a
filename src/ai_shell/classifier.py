@@ -10,10 +10,14 @@ from src.rag.prompt_templates import PromptTemplateManager
 
 class CommandClassifier:
     
-    def __init__(self):
-        # Use GPT-4.1 for classification (cheaper and faster)
-        classifier_config = AppSettings.get_llm_config("gpt_4_1")
-        self.llm_client = LLMClient(classifier_config)
+    def __init__(self, llm_client: Optional[LLMClient] = None):
+        # Accept an injected LLM client (which should be proxied)
+        if llm_client:
+            self.llm_client = llm_client
+        else:
+            # Fallback to creating a direct client (for backwards compatibility)
+            classifier_config = AppSettings.get_llm_config("gpt_4_1")
+            self.llm_client = LLMClient(classifier_config)
         self.classification_cache = {}
         self.template_manager = PromptTemplateManager()
         

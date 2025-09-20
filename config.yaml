@@ -31,8 +31,9 @@ llm_providers:
   gpt_5:
     model: "openai/gpt-4.1-mini"
     base_url: "https://openrouter.ai/api/v1"
-    timeout: 120
+    timeout: 20
     max_retries: 3
+    temperature: 0.5
     reasoning_effort: "medium"
     verbosity: "medium"
     
