@@ -36,7 +36,7 @@ class ToolExecutor:
             except Exception as e:
                 print(f"Error loading command from {file_path.name}: {e}")
 
-        print(f"✅ Loaded {len(loaded_commands)} commands: {list(loaded_commands.keys())}")
+        print(f"Loaded {len(loaded_commands)} tools: {', '.join(loaded_commands.keys())}")
         return loaded_commands
 
     def execute_tool(self, tool_name: str, params: dict) -> str:

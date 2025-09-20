@@ -3,6 +3,8 @@ import time
 from datetime import datetime
 
 from src.agent.agent import Agent
+from src.agent.memory import InMemoryMemory
+from src.agent.prompt_builder import PromptBuilder
 from src.agent.tool_executor import ToolExecutor
 from src.llm.client import LLMClient
 from src.trace.events import EventSink, TraceContext, TaskEvent
@@ -71,14 +73,19 @@ class TaskOrchestrator:
             llm_proxy = LLMProxy(real_llm_client, trace_context, self.event_sink)
             tool_proxy = ToolProxy(real_tool_executor, trace_context, self.event_sink)
             
+            memory = InMemoryMemory()
+            prompt_builder = PromptBuilder(context_mode=self.context_mode)
+            
             agent = Agent(
+                thread_id=trace_id,
+                memory=memory,
                 llm_client=llm_proxy,
                 tool_executor=tool_proxy,
-                max_steps=AppSettings.MAX_STEPS,
-                context_mode=self.context_mode
+                prompt_builder=prompt_builder,
+                max_steps=AppSettings.MAX_STEPS
             )
             
-            result = await agent.run(augmented_request)
+            result, tokens_used = await agent.step(augmented_request, context)
             
             self.event_sink.emit(TaskEvent(
                 event_type="task_completed",

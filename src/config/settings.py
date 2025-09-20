@@ -5,12 +5,13 @@ from dataclasses import asdict
 from dotenv import load_dotenv
 
 from src.llm.types import LLMConfig
+from src.utils.paths import get_absolute_path
 
 
 class AppSettings:
-    load_dotenv()
+    load_dotenv(get_absolute_path('.env'))
 
-    _config_path = Path("config.yaml")
+    _config_path = get_absolute_path("config.yaml")
     if not _config_path.exists():
         raise FileNotFoundError(f"Configuration file not found at: {_config_path}")
 

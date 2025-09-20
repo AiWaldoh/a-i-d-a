@@ -62,9 +62,7 @@ class LLMClient:
 
         start_time = time.time()
         try:
-            print("doing request")
             response = await self._client.chat.completions.create(**params)
-            print("doing response")
 
             if self.config.response_parser == "qwen_thinking":
                 # The response content is a string that contains <think>...</think> followed by JSON
