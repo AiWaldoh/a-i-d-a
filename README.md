@@ -26,7 +26,7 @@ A coding assistant that uses AI to help with code tasks.
 
 4. Run the agent:
    ```bash
-   # Interactive
+   # Interactive (with persistent chat history)
    python3 main.py
    
    # One task
@@ -35,6 +35,11 @@ A coding assistant that uses AI to help with code tasks.
    # With context mode
    python3 main.py --context-mode rag
    ```
+   
+   Interactive mode features:
+   - Persistent chat history within session
+   - Token usage tracking per turn and total
+   - Full event tracing for all interactions
 
 5. Run web interface:
    ```bash
