@@ -17,10 +17,22 @@ class AIShellToolExecutor(ToolExecutor):
                 output, exit_code = self.command_executor.execute_command(command)
                 
                 formatted_output = ""
-                if output:
+                
+                # Add success/failure indicator
+                if exit_code == 0:
+                    formatted_output += "✅ COMMAND SUCCEEDED\n"
+                else:
+                    formatted_output += "❌ COMMAND FAILED\n"
+                
+                if output and output.strip():
                     formatted_output += f"STDOUT:\n{output.strip()}\n"
+                else:
+                    if exit_code == 0:
+                        formatted_output += "STDOUT: (no output - command completed silently)\n"
+                
                 if exit_code != 0:
                     formatted_output += f"STDERR:\nCommand failed\n"
+                
                 formatted_output += f"Return Code: {exit_code}"
                 
                 return formatted_output.strip()

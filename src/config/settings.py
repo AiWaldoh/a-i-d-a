@@ -84,6 +84,28 @@ class AppSettings:
     )
 
     @classmethod
+    def get_llm_config(cls, model_name: str) -> LLMConfig:
+        """Get LLM configuration for a specific model"""
+        if model_name not in cls._yaml["llm_providers"]:
+            raise ValueError(f"Model '{model_name}' not found in llm_providers.")
+        
+        model_config = cls._yaml["llm_providers"][model_name]
+        
+        return LLMConfig(
+            api_key=cls.API_KEY,
+            base_url=model_config["base_url"],
+            model=model_config["model"],
+            timeout=model_config["timeout"],
+            max_retries=model_config.get("max_retries", 3),
+            reasoning_effort=model_config.get("reasoning_effort"),
+            verbosity=model_config.get("verbosity"),
+            temperature=float(model_config["temperature"]) if model_config.get("temperature") is not None else None,
+            top_p=float(model_config["top_p"]) if model_config.get("top_p") is not None else None,
+            max_tokens=int(model_config["max_tokens"]) if model_config.get("max_tokens") is not None else None,
+            response_parser=model_config.get("response_parser"),
+        )
+
+    @classmethod
     def as_dict(cls) -> dict:
         return {
             "agent": {

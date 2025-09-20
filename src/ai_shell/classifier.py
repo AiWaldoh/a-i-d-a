@@ -4,13 +4,18 @@ from typing import Tuple, Optional, List
 
 from src.llm.client import LLMClient
 from src.config.settings import AppSettings
+from src.llm.types import LLMConfig
+from src.rag.prompt_templates import PromptTemplateManager
 
 
 class CommandClassifier:
     
     def __init__(self):
-        self.llm_client = LLMClient(AppSettings.LLM_CONFIG)
+        # Use GPT-4.1 for classification (cheaper and faster)
+        classifier_config = AppSettings.get_llm_config("gpt_4_1")
+        self.llm_client = LLMClient(classifier_config)
         self.classification_cache = {}
+        self.template_manager = PromptTemplateManager()
         
         self.classification_tools = [{
             "type": "function",
@@ -155,12 +160,7 @@ class CommandClassifier:
         messages = [
             {
                 "role": "system", 
-                "content": """Classify if user input is a Linux command or natural language request.
-                
-Commands include: shell commands, scripts, program names, file paths.
-Natural language includes: questions, requests for help, conversational text, error descriptions.
-
-Consider the context of recent commands when classifying ambiguous input."""
+                "content": self.template_manager.get("ai_shell_classifier")
             },
             {
                 "role": "user", 

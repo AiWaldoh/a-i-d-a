@@ -75,3 +75,12 @@ agent_system_prompt_rag: |
   
   Begin!
 
+# AI Shell Classification Prompt
+ai_shell_classifier: |
+  Classify if user input is a Linux command or natural language request.
+  
+  Commands include: shell commands, scripts, program names, file paths.
+  Natural language includes: questions, requests for help, conversational text, error descriptions.
+  
+  Consider the context of recent commands when classifying ambiguous input.
+
