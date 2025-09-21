@@ -48,7 +48,17 @@ class LLMProxy:
                     {
                         "message": {
                             "content": choice.message.content,
-                            "role": choice.message.role
+                            "role": choice.message.role,
+                            "tool_calls": [
+                                {
+                                    "id": tc.id,
+                                    "type": tc.type,
+                                    "function": {
+                                        "name": tc.function.name,
+                                        "arguments": tc.function.arguments
+                                    }
+                                } for tc in (choice.message.tool_calls or [])
+                            ] if hasattr(choice.message, 'tool_calls') and choice.message.tool_calls else None
                         },
                         "finish_reason": choice.finish_reason
                     } for choice in response.choices

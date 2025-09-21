@@ -147,9 +147,39 @@ class Agent:
                     } for tc in message.tool_calls
                 ]
                 
+                # Create a descriptive content for tool calls
+                tool_descriptions = []
+                for tc in message.tool_calls:
+                    try:
+                        args = json.loads(tc.function.arguments)
+                        # Extract key information from arguments
+                        if tc.function.name == "run_command":
+                            desc = f"Running command: {args.get('command', '')}"
+                        elif tc.function.name == "semantic_search":
+                            desc = f"Searching for: {args.get('query', '')}"
+                        elif tc.function.name == "write_to_file":
+                            desc = f"Writing to file: {args.get('path', '')}"
+                        elif tc.function.name == "read_file":
+                            desc = f"Reading file: {args.get('path', '')}"
+                        elif tc.function.name == "file_search":
+                            desc = f"Searching files matching: {args.get('pattern', '')}"
+                        else:
+                            # Generic description for other tools
+                            desc = f"Calling {tc.function.name}"
+                            if 'path' in args:
+                                desc += f": {args['path']}"
+                            elif 'query' in args:
+                                desc += f": {args['query']}"
+                    except:
+                        desc = f"Calling {tc.function.name}"
+                    tool_descriptions.append(desc)
+                
+                # Use the original content if provided, otherwise create a description
+                content = message.content or "\n".join(tool_descriptions)
+                
                 recent.append(Message(
                     role="assistant",
-                    content=message.content or "",
+                    content=content,
                     meta={"tool_calls": tool_calls_data}
                 ))
                 
