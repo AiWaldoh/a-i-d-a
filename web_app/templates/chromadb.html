@@ -706,23 +706,23 @@
             font-size: 1.1rem;
         }
 
-        .apply-filter-btn {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
+        .filter-status {
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            color: #10b981;
+            font-size: 0.9rem;
+            font-weight: 500;
         }
 
-        .apply-filter-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        .filter-status i {
+            color: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         /* RAG Filter Visual States */
@@ -831,9 +831,10 @@
                            value="0.4"
                            placeholder="0.4">
                     <span class="threshold-display">40%</span>
-                    <button class="apply-filter-btn" onclick="applyFilter()">
-                        <i class="fas fa-eye"></i> Preview Filter
-                    </button>
+                    <div class="filter-status">
+                        <i class="fas fa-filter"></i>
+                        <span class="filter-status-text">Auto-filtering enabled</span>
+                    </div>
                 </div>
             </div>
             {% endif %}
@@ -1083,6 +1084,94 @@
                 console.error('Error fetching stats:', error);
             }
         }
+        
+        // RAG Filtering functionality
+        function applyFilter() {
+            const thresholdInput = document.getElementById('threshold-input');
+            const threshold = parseFloat(thresholdInput.value) || 0.4;
+            const thresholdDisplay = document.querySelector('.threshold-display');
+            
+            // Update threshold display
+            thresholdDisplay.textContent = Math.round(threshold * 100) + '%';
+            
+            // Get all chunk cards
+            const chunkCards = document.querySelectorAll('.chunk-card');
+            
+            chunkCards.forEach(card => {
+                // Find similarity score in the chunk metadata
+                const similarityElement = card.querySelector('.similarity-badge');
+                
+                if (similarityElement) {
+                    // Extract similarity percentage from text like "75.2% match"
+                    const similarityText = similarityElement.textContent;
+                    const similarityMatch = similarityText.match(/(\d+\.?\d*)%/);
+                    
+                    if (similarityMatch) {
+                        const similarity = parseFloat(similarityMatch[1]) / 100; // Convert to decimal
+                        
+                        // Remove existing classes
+                        card.classList.remove('rag-included', 'rag-excluded');
+                        
+                        // Remove existing status badge
+                        const existingBadge = card.querySelector('.rag-status-badge');
+                        if (existingBadge) {
+                            existingBadge.remove();
+                        }
+                        
+                        // Apply new styling based on threshold
+                        if (similarity >= threshold) {
+                            card.classList.add('rag-included');
+                            
+                            // Add included badge
+                            const includedBadge = document.createElement('div');
+                            includedBadge.className = 'rag-status-badge included';
+                            includedBadge.textContent = 'INCLUDED';
+                            card.appendChild(includedBadge);
+                        } else {
+                            card.classList.add('rag-excluded');
+                            
+                            // Add excluded badge
+                            const excludedBadge = document.createElement('div');
+                            excludedBadge.className = 'rag-status-badge excluded';
+                            excludedBadge.textContent = 'EXCLUDED';
+                            card.appendChild(excludedBadge);
+                        }
+                    }
+                }
+            });
+            
+            // Update filter status display
+            const includedCount = document.querySelectorAll('.chunk-card.rag-included').length;
+            const excludedCount = document.querySelectorAll('.chunk-card.rag-excluded').length;
+            const filterStatusText = document.querySelector('.filter-status-text');
+            
+            if (filterStatusText) {
+                filterStatusText.textContent = `${includedCount} included, ${excludedCount} excluded`;
+            }
+        }
+        
+        // Auto-apply filter when threshold changes
+        document.addEventListener('DOMContentLoaded', function() {
+            const thresholdInput = document.getElementById('threshold-input');
+            const thresholdDisplay = document.querySelector('.threshold-display');
+            
+            if (thresholdInput && thresholdDisplay) {
+                // Apply filter immediately on page load
+                applyFilter();
+                
+                // Auto-apply filter when input changes
+                thresholdInput.addEventListener('input', function() {
+                    const threshold = parseFloat(this.value) || 0.4;
+                    thresholdDisplay.textContent = Math.round(threshold * 100) + '%';
+                    
+                    // Auto-apply filter with debouncing to avoid excessive calls
+                    clearTimeout(window.filterTimeout);
+                    window.filterTimeout = setTimeout(() => {
+                        applyFilter();
+                    }, 300); // 300ms delay after user stops typing
+                });
+            }
+        });
         
         // Add keyboard shortcut for search
         document.addEventListener('keydown', (e) => {

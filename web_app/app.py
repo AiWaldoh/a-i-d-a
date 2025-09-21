@@ -30,6 +30,10 @@ except ImportError:
 METRICS_DIR = Path(__file__).resolve().parent.parent / "tmp"
 DB_DIR = Path(__file__).resolve().parent.parent / "db"
 
+# Simple in-memory cache for file metadata
+_metadata_cache = {}
+_cache_timestamps = {}
+
 # Custom Jinja2 filters
 def strftime_filter(value, format_str):
     """Custom Jinja2 filter for formatting timestamps"""
@@ -64,8 +68,116 @@ def urlencode_filter(value):
 
 templates.env.filters["urlencode"] = urlencode_filter
 
+def extract_basic_metadata(file_path: str) -> Dict[str, Any]:
+    """Extract basic metadata from trace file without full parsing - FAST"""
+    # Check cache first
+    file_stat = Path(file_path).stat()
+    cache_key = file_path
+    
+    if (cache_key in _metadata_cache and 
+        cache_key in _cache_timestamps and 
+        _cache_timestamps[cache_key] >= file_stat.st_mtime):
+        return _metadata_cache[cache_key]
+    
+    try:
+        user_request = 'Unknown request'
+        context_mode = 'none'
+        start_time = None
+        end_time = None
+        total_duration = 0
+        total_calls = 0
+        total_tokens = 0
+        
+        # Only read first few lines and last few lines for basic info
+        with open(file_path, 'r') as f:
+            lines = f.readlines()
+        
+        # Count total lines for approximate call count
+        total_calls = len([line for line in lines if line.strip()])
+        
+        # Parse first few lines for task start info
+        for line in lines[:10]:  # Only check first 10 lines
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line.strip())
+                if event.get('event_type') == 'task_started':
+                    user_request = event.get('data', {}).get('user_request', 'Unknown request')
+                    context_mode = event.get('data', {}).get('context_mode', 'none')
+                    start_time = datetime.fromisoformat(event['timestamp'].replace('Z', '+00:00'))
+                    break
+            except:
+                continue
+        
+        # Parse last few lines for completion info
+        for line in reversed(lines[-10:]):  # Only check last 10 lines
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line.strip())
+                if event.get('event_type') == 'task_completed':
+                    end_time = datetime.fromisoformat(event['timestamp'].replace('Z', '+00:00'))
+                    total_duration = event.get('data', {}).get('duration_seconds', 0)
+                    break
+            except:
+                continue
+        
+        # Quick token estimation from a sample of LLM responses (not all)
+        llm_response_count = 0
+        token_sample = 0
+        for line in lines[::max(1, len(lines)//20)]:  # Sample every 20th line
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line.strip())
+                if event.get('event_type') == 'llm_response':
+                    llm_response_count += 1
+                    usage = event.get('data', {}).get('response', {}).get('usage', {})
+                    token_sample += usage.get('total_tokens', 0)
+                    if llm_response_count >= 3:  # Only sample first 3 LLM responses
+                        break
+            except:
+                continue
+        
+        # Estimate total tokens based on sample
+        if llm_response_count > 0:
+            avg_tokens_per_response = token_sample / llm_response_count
+            estimated_llm_responses = len([l for l in lines if 'llm_response' in l])
+            total_tokens = int(avg_tokens_per_response * estimated_llm_responses)
+        
+        result = {
+            'user_request': user_request,
+            'context_mode': context_mode,
+            'start_time': start_time,
+            'end_time': end_time,
+            'total_duration': total_duration,
+            'total_calls': total_calls,
+            'total_tokens': total_tokens,
+            'models_used': ['estimated'],  # We'll get actual model on full parse
+            'avg_duration_per_call': total_duration / max(1, total_calls)
+        }
+        
+        # Cache the result
+        _metadata_cache[cache_key] = result
+        _cache_timestamps[cache_key] = file_stat.st_mtime
+        
+        return result
+    except Exception as e:
+        return {
+            'user_request': 'Parse error',
+            'context_mode': 'unknown',
+            'start_time': None,
+            'end_time': None,
+            'total_duration': 0,
+            'total_calls': 0,
+            'total_tokens': 0,
+            'models_used': ['unknown'],
+            'avg_duration_per_call': 0,
+            'error': str(e)
+        }
+
 def discover_metrics_files() -> List[Dict[str, Any]]:
-    """Discover all trace files in the tmp directory"""
+    """Discover all trace files in the tmp directory - OPTIMIZED FOR SPEED"""
     metrics_files = []
 
     # Look for trace files in the tmp directory
@@ -74,22 +186,22 @@ def discover_metrics_files() -> List[Dict[str, Any]]:
     for file_path in glob.glob(pattern):
         path_obj = Path(file_path)
         try:
-            # Parse the file to get basic info
-            metrics_data = parse_trace_file(file_path)
+            # Use fast metadata extraction instead of full parsing
+            basic_metadata = extract_basic_metadata(file_path)
 
             metrics_files.append({
                 'filename': path_obj.name,
                 'full_path': file_path,
-                'total_calls': metrics_data.total_calls,
-                'total_duration': metrics_data.total_duration,
-                'total_tokens': metrics_data.total_tokens,
-                'avg_duration': metrics_data.avg_duration_per_call,
-                'models_used': metrics_data.models_used,
-                'start_time': metrics_data.start_time,
-                'end_time': metrics_data.end_time,
+                'total_calls': basic_metadata['total_calls'],
+                'total_duration': basic_metadata['total_duration'],
+                'total_tokens': basic_metadata['total_tokens'],
+                'avg_duration': basic_metadata['avg_duration_per_call'],
+                'models_used': basic_metadata['models_used'],
+                'start_time': basic_metadata['start_time'],
+                'end_time': basic_metadata['end_time'],
                 'date_created': path_obj.stat().st_mtime,
-                'context_mode': metrics_data.context_mode,
-                'user_request': metrics_data.user_request
+                'context_mode': basic_metadata['context_mode'],
+                'user_request': basic_metadata['user_request']
             })
         except Exception as e:
             # If parsing fails, still include the file with basic info
