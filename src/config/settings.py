@@ -18,14 +18,18 @@ class AppSettings:
     with open(_config_path, "r") as f:
         _yaml = yaml.safe_load(f) or {}
 
-    if "active_model" not in _yaml or "llm_providers" not in _yaml:
-        raise ValueError("'config.yaml' is missing 'active_model' or 'llm_providers'.")
+    if "llm_configs" not in _yaml or "llm_providers" not in _yaml:
+        raise ValueError("'config.yaml' is missing 'llm_configs' or 'llm_providers'.")
 
-    _active_model = _yaml["active_model"]
-    if _active_model not in _yaml["llm_providers"]:
-        raise ValueError(f"Active model '{_active_model}' not found in llm_providers.")
+    # Get the agent_llm model name from llm_configs
+    if "agent_llm" not in _yaml["llm_configs"]:
+        raise ValueError("'llm_configs' is missing 'agent_llm' configuration.")
     
-    _llm_yaml = _yaml["llm_providers"][_active_model]
+    _agent_model_name = _yaml["llm_configs"]["agent_llm"]
+    if _agent_model_name not in _yaml["llm_providers"]:
+        raise ValueError(f"Model '{_agent_model_name}' referenced by agent_llm not found in llm_providers.")
+    
+    _llm_yaml = _yaml["llm_providers"][_agent_model_name]
 
 
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
@@ -70,6 +74,8 @@ class AppSettings:
     RAG_FALLBACK_CHUNKS = int(os.getenv("RAG_FALLBACK_CHUNKS", _rag_config.get("fallback_chunks", 10)))
 
 
+    # Default LLM_CONFIG (uses agent_llm configuration)
+    # Used by default LLMClient() instantiations in main.py, session.py, etc.
     LLM_CONFIG = LLMConfig(
         api_key=API_KEY,
         base_url=BASE_URL,
@@ -85,7 +91,7 @@ class AppSettings:
     )
 
     @classmethod
-    def get_llm_config(cls, model_name: str) -> LLMConfig:
+    def get_llm_config_by_model(cls, model_name: str) -> LLMConfig:
         """Get LLM configuration for a specific model"""
         if model_name not in cls._yaml["llm_providers"]:
             raise ValueError(f"Model '{model_name}' not found in llm_providers.")
@@ -105,6 +111,15 @@ class AppSettings:
             max_tokens=int(model_config["max_tokens"]) if model_config.get("max_tokens") is not None else None,
             response_parser=model_config.get("response_parser"),
         )
+    
+    @classmethod
+    def get_llm_config(cls, situation: str) -> LLMConfig:
+        """Get LLM configuration for a specific situation/use case"""
+        if situation not in cls._yaml["llm_configs"]:
+            raise ValueError(f"Situation '{situation}' not found in llm_configs.")
+        
+        model_name = cls._yaml["llm_configs"][situation]
+        return cls.get_llm_config_by_model(model_name)
 
     @classmethod
     def as_dict(cls) -> dict:

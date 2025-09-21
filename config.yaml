@@ -1,6 +1,20 @@
-active_model: "gpt_5"
+# Agent configuration
 max_steps: 50  # Maximum number of agent steps before stopping
 keep_last: 20  # Number of recent messages to keep in LLM context
+
+# Situation-based LLM configurations
+# Each key represents a specific use case rather than a model name
+llm_configs:
+  # Main agent that handles user requests
+  agent_llm: "gpt_5"
+  
+  # Classifier for AI Shell command routing
+  classifier_llm: "gpt_4_1"
+  
+  # You can add more situation-based configs here:
+  # code_review_llm: "gpt_4_1"
+  # planning_llm: "qwen3_next"
+  # etc.
 
 # Embedding configuration for RAG system
 embedding:
@@ -27,6 +41,8 @@ rag:
   max_chunks: 10            # Maximum chunks to include in context
   fallback_chunks: 10       # Chunks to include if not enough meet threshold
 
+# Model definitions
+# These are referenced by the llm_configs above
 llm_providers:
   gpt_5:
     model: "openai/gpt-4.1-mini"

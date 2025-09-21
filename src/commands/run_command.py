@@ -49,6 +49,9 @@ class Command:
             # Mark as failed if non-zero exit code
             if process.returncode != 0:
                 output = f"❌ COMMAND FAILED\n{output}"
+            elif not output.strip():
+                # Command succeeded but produced no output
+                output = f"✓ Command completed successfully (no output)"
             
             return output.strip()
 

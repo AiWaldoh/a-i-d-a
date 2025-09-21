@@ -26,8 +26,6 @@ from src.utils.paths import get_absolute_path
 class AIShell:
     
     def __init__(self):
-        print("🤖 Initializing AI Shell...")
-        
         # Store original working directory
         self.original_cwd = os.getcwd()
         
@@ -62,7 +60,7 @@ class AIShell:
         real_tool_executor = AIShellToolExecutor()
         
         # Create a separate LLM client for the classifier
-        classifier_llm_client = LLMClient(AppSettings.get_llm_config("gpt_4_1"))
+        classifier_llm_client = LLMClient(AppSettings.get_llm_config("classifier_llm"))
         
         # For classifier, we create a simple trace context
         classifier_trace_context = TraceContext(
@@ -93,11 +91,6 @@ class AIShell:
         
         self._setup_readline()
         self._setup_signals()
-        
-        print("✅ AI Shell ready! Type commands or ask questions naturally.")
-        print("💡 Examples: 'ls', 'what files are here?', 'fix the last error'")
-        print(f"📊 Session trace: {trace_file}")
-        print("🚪 Type 'exit' or Ctrl-D to quit\n")
     
     def _setup_readline(self):
         

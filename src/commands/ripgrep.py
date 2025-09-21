@@ -18,6 +18,11 @@ class Command:
         
         cmd.append(pattern)
         
+        # Add search directory if specified
+        search_directory = params.get("search_directory")
+        if search_directory:
+            cmd.append(search_directory)
+        
         try:
             result = subprocess.run(
                 cmd,
