@@ -56,9 +56,6 @@ class LLMClient:
         if tools:
             params["tools"] = tools
             params["tool_choice"] = "auto"
-        else:
-            # Ensure JSON object response when not using tools
-            params["response_format"] = {"type": "json_object"}
 
         start_time = time.time()
         try:

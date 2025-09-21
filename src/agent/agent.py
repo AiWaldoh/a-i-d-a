@@ -1,6 +1,7 @@
 import json
 import yaml
 import time
+import os
 from typing import List, Dict, Any, Optional, Tuple
 
 from src.llm.client import LLMClient
@@ -243,6 +244,8 @@ class Agent:
                         final_response = enhanced_response
                     except Exception as e:
                         print(f"⚠️ Personality enhancement failed: {e}")
+                        import traceback
+                        traceback.print_exc()
                         final_response = raw_response
                 else:
                     final_response = raw_response
@@ -316,6 +319,14 @@ class Agent:
         personality_prompt = personality_prompt.replace("{user_request}", user_request)
         personality_prompt = personality_prompt.replace("{tool_summary}", tool_summary_str)
         personality_prompt = personality_prompt.replace("{raw_response}", raw_response)
+        
+        # Debug: Print what we're sending to personality LLM
+        if os.environ.get('AI_SHELL_DEBUG') == 'true':
+            print(f"\n[DEBUG] Personality enhancement input:")
+            print(f"User request: {user_request}")
+            print(f"Tool summary: {tool_summary_str}")
+            print(f"Raw response: {raw_response}")
+            print(f"Full prompt length: {len(personality_prompt)}")
         
         # Get enhanced response
         messages = [{"role": "user", "content": personality_prompt}]
