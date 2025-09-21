@@ -41,7 +41,7 @@ tools:
       required: ["reasoning", "file_path"]
     category: file_operations
   - name: semantic_search
-    description: "Performs a semantic search over the codebase to find relevant code snippets based on meaning, not just keywords. Useful for follow-up questions or when the initial context is insufficient."
+    description: "Performs a semantic search over the codebase to find relevant code snippets based on meaning, not just keywords."
     schema:
       type: object
       properties:
@@ -73,10 +73,10 @@ tools:
           description: "Directory to search in (REQUIRED to limit search scope)"
         extension:
           type: string
-          description: "File extension to search (e.g., 'py', 'js', 'txt') - REQUIRED to limit file types"
+          description: "File extension to search (e.g., 'py', 'js', 'txt')"
         max_count:
           type: integer
-          description: "Maximum number of matches to return (REQUIRED - Maximum 50)"
+          description: "Maximum number of matches to return (Maximum 50)"
           minimum: 1
           maximum: 50
       required: ["reasoning", "pattern", "search_directory", "extension", "max_count"]
@@ -130,8 +130,8 @@ tools:
           description: "Directory to search in (defaults to current directory)"
         include_dirs:
           type: boolean
-          description: "Include directories in results (default: false, only files)"
-          default: false
+          description: "Include directories in results (default: true)"
+          default: true
         max_results:
           type: integer
           description: "Maximum number of results to return"

@@ -57,7 +57,7 @@ class AIShell:
         
         # Create real clients
         real_llm_client = LLMClient()
-        real_tool_executor = AIShellToolExecutor()
+        real_tool_executor = AIShellToolExecutor(command_executor=self.executor)
         
         # Create a separate LLM client for the classifier
         classifier_llm_client = LLMClient(AppSettings.get_llm_config("classifier_llm"))

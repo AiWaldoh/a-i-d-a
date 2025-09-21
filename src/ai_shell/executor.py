@@ -44,13 +44,10 @@ class CommandExecutor:
         
         if self.ssh:
             try:
-                stdin, stdout, stderr = self.ssh.exec_command("pwd")
-                ssh_pwd = stdout.read().decode('utf-8').strip()
-                if ssh_pwd and os.path.exists(ssh_pwd):
-                    self.current_directory = ssh_pwd
-                    os.chdir(ssh_pwd)
+                # Don't change the local directory - just sync SSH to match local
+                self.ssh.exec_command(f"cd {self.current_directory}")
             except Exception as e:
-                print(f"Initial state sync failed: {e}")
+                print(f"Initial SSH directory sync failed: {e}")
     
     def execute_command(self, command: str) -> Tuple[str, int]:
         

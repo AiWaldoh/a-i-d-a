@@ -33,7 +33,7 @@ class Command:
                 if path.is_file():
                     results.append(str(path))
                     count += 1
-                elif path.is_dir() and params.get("include_dirs", False):
+                elif path.is_dir() and params.get("include_dirs", True):
                     results.append(str(path) + "/")
                     count += 1
             
