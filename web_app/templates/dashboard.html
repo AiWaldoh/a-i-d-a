@@ -130,7 +130,34 @@
         <div class="timeline-container">
             {% for event in tool_calls %}
                 
-                {% if event.type == 'task_start' %}
+                {% if event.type == 'session_start' %}
+                <!-- Session Start Event -->
+                <div class="timeline-event fade-in">
+                    <div class="event-marker" style="background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white;">
+                        <i class="fas fa-terminal"></i>
+                    </div>
+                    <div class="event-content">
+                        <div class="event-header">
+                            <h3 class="event-title">
+                                <i class="fas fa-terminal"></i>
+                                AI Shell Session Started
+                            </h3>
+                            <div class="event-meta">
+                                <span class="event-time">{{ event.timestamp|strftime('%H:%M:%S') }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="event-section">
+                            <div class="section-header">
+                                <i class="fas fa-fingerprint"></i>
+                                Session ID
+                            </div>
+                            <code>{{ event.session_id }}</code>
+                        </div>
+                    </div>
+                </div>
+                
+                {% elif event.type == 'task_start' %}
                 <!-- Task Start Event -->
                 <div class="timeline-event fade-in">
                     <div class="event-marker success">

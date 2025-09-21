@@ -245,19 +245,29 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
         tool_requests = []
         tool_responses = {}
         total_duration = 0
+        session_id = None
         
         # First pass: collect all events
         for event in events:
             event_type = event.get('event_type')
             
-            if event_type == 'task_started':
-                user_request = event['data'].get('user_request', '')
+            if event_type == 'session_started':
+                session_id = event['data'].get('session_id', '')
                 context_mode = event['data'].get('context_mode', 'none')
                 start_time = datetime.fromisoformat(event['timestamp'].replace('Z', '+00:00'))
+                # For sessions, we'll show the first user request as the main one
+            
+            elif event_type == 'task_started':
+                if user_request is None:  # Only capture first user request for display
+                    user_request = event['data'].get('user_request', '')
+                if start_time is None:  # If no session_started, use first task_started
+                    context_mode = event['data'].get('context_mode', 'none')
+                    start_time = datetime.fromisoformat(event['timestamp'].replace('Z', '+00:00'))
             
             elif event_type == 'task_completed':
+                # Keep updating end_time to get the last one
                 end_time = datetime.fromisoformat(event['timestamp'].replace('Z', '+00:00'))
-                total_duration = event['data'].get('duration_seconds', 0)
+                total_duration += event['data'].get('duration_seconds', 0)
             
             elif event_type == 'llm_response':
                 response_data = event['data'].get('response')
@@ -313,25 +323,44 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
         
         # Group events into logical cycles
         grouped_events = []
-        task_step = 0  # Step counter within current task
+        task_step = 0  # Step counter across all tasks
+        current_task_num = 0  # Track which task we're in
         
         # Track current cycle events
         current_cycle = []
         llm_request_data = None
         context_data = None
         in_task = False  # Track if we're currently in a task
+        current_trace_id = None  # Track current task's trace_id
         
         for event in events:
             event_type = event.get('event_type')
             timestamp = event.get('timestamp', '')
             data = event.get('data', {})
+            event_trace_id = event.get('trace_id', '')
             
-            if event_type == 'task_started':
-                task_step = 0  # Reset step counter for new task
+            if event_type == 'session_started':
+                # Add session start marker
+                grouped_events.append({
+                    'type': 'session_start',
+                    'step': 0,
+                    'timestamp': timestamp,
+                    'session_id': data.get('session_id', ''),
+                    'events': [event]
+                })
+            
+            elif event_type == 'task_started':
+                # Don't reset step counter for sessions - keep it incrementing
                 in_task = True
+                current_task_num += 1
+                current_trace_id = event_trace_id  # Track this task's trace_id
+                # Reset current cycle for new task
+                if current_cycle:
+                    # Shouldn't happen, but handle any pending cycle
+                    current_cycle = []
                 grouped_events.append({
                     'type': 'task_start',
-                    'step': task_step,
+                    'step': f"Task {current_task_num}",
                     'timestamp': timestamp,
                     'user_request': data.get('user_request', ''),
                     'events': [event]
@@ -349,8 +378,8 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
                     grouped_events[-1]['context'] = context_data
                     grouped_events[-1]['events'].append(event)
                 
-            elif event_type == 'llm_request':
-                # Start a new cycle
+            elif event_type == 'llm_request' and event_trace_id == current_trace_id:
+                # Start a new cycle (only if it belongs to current task)
                 if current_cycle:
                     # Finish previous cycle if exists
                     task_step += 1
@@ -362,13 +391,13 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
                 current_cycle = [event]
                 llm_request_data = data
                 
-            elif event_type == 'llm_response' and current_cycle:
+            elif event_type == 'llm_response' and current_cycle and event_trace_id == current_trace_id:
                 current_cycle.append(event)
                 
-            elif event_type == 'tool_request' and current_cycle:
+            elif event_type == 'tool_request' and current_cycle and event_trace_id == current_trace_id:
                 current_cycle.append(event)
                 
-            elif event_type == 'tool_response' and current_cycle:
+            elif event_type == 'tool_response' and current_cycle and event_trace_id == current_trace_id:
                 current_cycle.append(event)
                 # Complete the cycle
                 task_step += 1
@@ -380,7 +409,7 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
                 })
                 current_cycle = []
                 
-            elif event_type == 'task_completed':
+            elif event_type == 'task_completed' and event_trace_id == current_trace_id:
                 # Finish any pending cycle
                 if current_cycle:
                     task_step += 1
@@ -400,12 +429,21 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
                     'events': [event]
                 })
                 in_task = False
+                current_trace_id = None  # Reset for next task
         
         # Process grouped events into display format
         tool_calls = []
         
         for group in grouped_events:
-            if group['type'] == 'task_start':
+            if group['type'] == 'session_start':
+                tool_calls.append({
+                    'type': 'session_start',
+                    'step': group['step'],
+                    'timestamp': group['timestamp'],
+                    'session_id': group.get('session_id', '')
+                })
+                
+            elif group['type'] == 'task_start':
                 tool_calls.append({
                     'type': 'task_start',
                     'step': group['step'],
@@ -464,9 +502,9 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
                             
                             # If thought is empty and we have tool calls in the response, create a description
                             if not thought and 'tool_calls' in response_data['choices'][0]['message']:
-                                tool_calls = response_data['choices'][0]['message']['tool_calls']
-                                if tool_calls:
-                                    tool_names = [tc['function']['name'] for tc in tool_calls]
+                                llm_tool_calls = response_data['choices'][0]['message']['tool_calls']
+                                if llm_tool_calls:
+                                    tool_names = [tc['function']['name'] for tc in llm_tool_calls]
                                     thought = f"Executing tool{'s' if len(tool_names) > 1 else ''}: {', '.join(tool_names)}"
                             
                             cycle_data['llm_response'] = {

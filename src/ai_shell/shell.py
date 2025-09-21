@@ -245,17 +245,19 @@ class AIShell:
     
     async def _ask_ai(self, prompt: str):
         
-        # Use the session_id as trace_id for all events in this session
+        # Create a new trace_id for this task (like main.py does)
+        task_trace_id = str(uuid.uuid4())
         task_start_time = datetime.now()
         
         # Emit task_started event for consistency
         self.event_sink.emit(TaskEvent(
             event_type="task_started",
-            trace_id=self.session_id,  # Use session_id instead of creating new
+            trace_id=task_trace_id,
             timestamp=task_start_time,
             data={
                 "user_request": prompt,
-                "context_mode": "none"
+                "context_mode": "none",
+                "session_id": self.session_id
             }
         ))
         
@@ -267,9 +269,9 @@ class AIShell:
             else:
                 full_prompt = prompt
             
-            # Create trace context using session_id
+            # Create trace context for this specific task
             trace_context = TraceContext(
-                trace_id=self.session_id,  # Use session_id instead of creating new
+                trace_id=task_trace_id,
                 user_request=prompt,
                 start_time=task_start_time
             )
@@ -299,7 +301,7 @@ class AIShell:
             # Emit task_completed event
             self.event_sink.emit(TaskEvent(
                 event_type="task_completed",
-                trace_id=self.session_id,  # Use session_id
+                trace_id=task_trace_id,
                 timestamp=datetime.now(),
                 data={
                     "result": response,
@@ -312,7 +314,7 @@ class AIShell:
             # Emit task_failed event
             self.event_sink.emit(TaskEvent(
                 event_type="task_failed",
-                trace_id=self.session_id,  # Use session_id
+                trace_id=task_trace_id,
                 timestamp=datetime.now(),
                 data={
                     "error": str(e),
