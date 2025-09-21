@@ -279,6 +279,13 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
                         if content and content.strip():
                             thought = content
                     
+                    # If thought is empty and we have tool calls, create a description
+                    if not thought and 'tool_calls' in response_data['choices'][0]['message']:
+                        tool_calls = response_data['choices'][0]['message']['tool_calls']
+                        if tool_calls:
+                            tool_names = [tc['function']['name'] for tc in tool_calls]
+                            thought = f"Executing tool{'s' if len(tool_names) > 1 else ''}: {', '.join(tool_names)}"
+                    
                     llm_responses.append({
                         'timestamp': event['timestamp'],
                         'duration_seconds': event['data'].get('duration_seconds', 0),
@@ -454,6 +461,13 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
                                 if content and content.strip():
                                     thought = content
                                 llm_content = {}
+                            
+                            # If thought is empty and we have tool calls in the response, create a description
+                            if not thought and 'tool_calls' in response_data['choices'][0]['message']:
+                                tool_calls = response_data['choices'][0]['message']['tool_calls']
+                                if tool_calls:
+                                    tool_names = [tc['function']['name'] for tc in tool_calls]
+                                    thought = f"Executing tool{'s' if len(tool_names) > 1 else ''}: {', '.join(tool_names)}"
                             
                             cycle_data['llm_response'] = {
                                 'model': model,

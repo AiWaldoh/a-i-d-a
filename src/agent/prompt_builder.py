@@ -50,7 +50,7 @@ class PromptBuilder:
                     "content": msg.content
                 })
         
-        messages.append({"role": "user", "content": user_text})
+        # Don't add user_text again - it's already in recent messages
         
         return messages
     
