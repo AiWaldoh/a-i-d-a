@@ -71,14 +71,20 @@ async def main():
         real_llm_client = LLMClient()
         real_tool_executor = ToolExecutor()
         
+        # Create personality LLM client
+        personality_config = AppSettings.get_llm_config("personality_llm")
+        real_personality_llm = LLMClient(personality_config) if personality_config else None
+        
         llm_proxy = LLMProxy(real_llm_client, trace_context, event_sink)
         tool_proxy = ToolProxy(real_tool_executor, trace_context, event_sink)
+        personality_proxy = LLMProxy(real_personality_llm, trace_context, event_sink) if real_personality_llm else None
         
         # Create the chat session with proxies
         session = ChatSession(
             llm_client=llm_proxy,
             tool_executor=tool_proxy,
-            context_mode=args.context_mode
+            context_mode=args.context_mode,
+            personality_llm=personality_proxy
         )
         
         # Removed session ID display for cleaner output

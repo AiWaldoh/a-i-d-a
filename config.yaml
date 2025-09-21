@@ -16,6 +16,7 @@ keep_last: 20
 llm_configs:
   agent_llm: gpt_5
   classifier_llm: gpt_4_1
+  personality_llm: gpt_5
 llm_providers:
   gpt_4_1:
     base_url: https://openrouter.ai/api/v1

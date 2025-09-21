@@ -62,6 +62,10 @@ class AIShell:
         # Create a separate LLM client for the classifier
         classifier_llm_client = LLMClient(AppSettings.get_llm_config("classifier_llm"))
         
+        # Create personality LLM client
+        personality_config = AppSettings.get_llm_config("personality_llm")
+        self.real_personality_llm = LLMClient(personality_config) if personality_config else None
+        
         # For classifier, we create a simple trace context
         classifier_trace_context = TraceContext(
             trace_id=self.session_id,
@@ -200,6 +204,10 @@ class AIShell:
             self._show_help()
             return
         
+        if user_input == 'enhance-self':
+            await self._enhance_self()
+            return
+        
         try:
             command_history = self.executor.get_recent_history()
             is_command, confidence = await self.classifier.classify(user_input, command_history)
@@ -279,6 +287,7 @@ class AIShell:
             # Create proxied clients for this request
             llm_proxy = LLMProxy(self.real_llm_client, trace_context, self.event_sink)
             tool_proxy = ToolProxy(self.real_tool_executor, trace_context, self.event_sink)
+            personality_proxy = LLMProxy(self.real_personality_llm, trace_context, self.event_sink) if self.real_personality_llm else None
             
             # Create chat session with proxied clients
             chat_session = ChatSession(
@@ -287,7 +296,8 @@ class AIShell:
                 tool_executor=tool_proxy,
                 prompt_builder=self.session_prompt_builder,
                 thread_id=self.session_id,
-                context_mode="none"
+                context_mode="none",
+                personality_llm=personality_proxy
             )
             
             response, tokens_used = await chat_session.ask(full_prompt)
@@ -402,9 +412,10 @@ Features:
   • Context-aware AI assistance
 
 Built-in commands:
-  exit     - Quit the shell
-  history  - Show recent commands with timestamps
-  help     - Show this help
+  exit        - Quit the shell
+  history     - Show recent commands with timestamps
+  help        - Show this help
+  enhance-self - Analyze and improve the shell capabilities
 
 Tips:
   • The AI remembers your recent commands and their output
@@ -412,6 +423,37 @@ Tips:
   • Say "fix" to get help with the last error
   • Natural language questions work naturally
         """)
+    
+    async def _enhance_self(self):
+        print("🧠 Initiating self-enhancement sequence...")
+        print("🔍 Analyzing current capabilities...")
+        
+        try:
+            # Ask the AI to analyze itself and suggest improvements
+            enhancement_prompt = """
+            Analyze the current AI Shell system and suggest specific enhancements. Focus on:
+            
+            1. New useful tools that would improve productivity
+            2. Better command classification patterns  
+            3. Enhanced user experience features
+            4. Configuration improvements
+            
+            After analysis, use the available tools to:
+            - Create new tool files in src/commands/ if needed
+            - Update tools.yaml with new tool definitions
+            - Modify configuration files if beneficial
+            - Use restart_shell tool to reload everything
+            
+            Be specific and practical. Only suggest enhancements that would genuinely improve the shell experience.
+            """
+            
+            await self._ask_ai(enhancement_prompt)
+            
+        except Exception as e:
+            print(f"❌ Self-enhancement failed: {e}")
+            if self.config.debug_mode:
+                import traceback
+                traceback.print_exc()
     
     async def run(self):
         

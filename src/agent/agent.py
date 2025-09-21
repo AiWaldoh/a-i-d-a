@@ -66,7 +66,7 @@ class Agent:
 
     def __init__(self, thread_id: str, memory: MemoryPort, llm_client: LLMClient, 
                  tool_executor: ToolExecutor, prompt_builder: PromptBuilder,
-                 max_steps: int = None, keep_last: int = None):
+                 max_steps: int = None, keep_last: int = None, personality_llm: LLMClient = None):
         from src.config.settings import AppSettings
         
         self.thread_id = thread_id
@@ -78,6 +78,7 @@ class Agent:
         self.keep_last = keep_last if keep_last is not None else AppSettings.KEEP_LAST
         self._scratch: List[Dict[str, Any]] = []
         self.tools = self._load_tools()
+        self.personality_llm = personality_llm
     
     def _load_tools(self) -> List[Dict[str, Any]]:
         """Load tools from tools.yaml and convert to OpenAI format."""
@@ -231,13 +232,29 @@ class Agent:
             # If no tool calls, check if there's a regular response
             if message.content:
                 # This is the final answer
-                final_response = message.content
+                raw_response = message.content
+                
+                # Apply personality enhancement if available
+                if self.personality_llm:
+                    try:
+                        enhanced_response = await self._enhance_with_personality(
+                            user_prompt, self._scratch, raw_response
+                        )
+                        final_response = enhanced_response
+                    except Exception as e:
+                        print(f"⚠️ Personality enhancement failed: {e}")
+                        final_response = raw_response
+                else:
+                    final_response = raw_response
                 
                 # Save to memory with scratch trace
                 self.memory.append(self.thread_id, Message(
                     role="assistant",
                     content=final_response,
-                    meta={"scratch": self._scratch}
+                    meta={
+                        "scratch": self._scratch,
+                        "raw_response": raw_response if final_response != raw_response else None
+                    }
                 ))
                 
                 # Maybe roll up summary if conversation getting long
@@ -265,6 +282,49 @@ class Agent:
             meta={"scratch": self._scratch}
         ))
         return timeout_msg, total_tokens
+    
+    async def _enhance_with_personality(self, user_request: str, tool_sequence: List[Dict], raw_response: str) -> str:
+        """Enhance the raw response with personality using a separate LLM."""
+        # Build a summary of tool actions
+        tool_summary = []
+        for action in tool_sequence:
+            tool_name = action.get('action', 'unknown')
+            args = action.get('args', {})
+            result = action.get('observation', '')
+            
+            # Create a readable summary
+            if tool_name == "run_command":
+                summary = f"- Ran command: {args.get('command', 'unknown')}"
+            elif tool_name == "read_file":
+                summary = f"- Read file: {args.get('file_path', 'unknown')}"
+            elif tool_name == "write_to_file":
+                summary = f"- Wrote to file: {args.get('file_path', 'unknown')}"
+            elif tool_name == "semantic_search":
+                summary = f"- Searched for: {args.get('query', 'unknown')}"
+            else:
+                summary = f"- Used {tool_name}"
+            
+            tool_summary.append(summary)
+        
+        tool_summary_str = "\n".join(tool_summary) if tool_summary else "No tools were used"
+        
+        # Load personality prompt template
+        with open(get_absolute_path("prompts.yaml"), 'r') as f:
+            prompts = yaml.safe_load(f)
+        
+        personality_prompt = prompts.get('personality_enhancement', '')
+        personality_prompt = personality_prompt.replace("{user_request}", user_request)
+        personality_prompt = personality_prompt.replace("{tool_summary}", tool_summary_str)
+        personality_prompt = personality_prompt.replace("{raw_response}", raw_response)
+        
+        # Get enhanced response
+        messages = [{"role": "user", "content": personality_prompt}]
+        response = await self.personality_llm.get_response(messages=messages)
+        
+        if response and response.choices and response.choices[0].message.content:
+            return response.choices[0].message.content
+        else:
+            return raw_response
     
     def _maybe_rollup_summary(self):
         # NOTE: user requested we do not automatically trim the conversation. We still

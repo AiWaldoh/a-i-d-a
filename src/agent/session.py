@@ -11,7 +11,8 @@ from src.agent.tool_executor import ToolExecutor
 class ChatSession:
     def __init__(self, memory: Optional[MemoryPort] = None, llm_client: Optional[LLMClient] = None,
                  tool_executor: Optional[ToolExecutor] = None, prompt_builder: Optional[PromptBuilder] = None,
-                 thread_id: Optional[str] = None, context_mode: str = "none", max_steps: int = 50):
+                 thread_id: Optional[str] = None, context_mode: str = "none", max_steps: int = 50,
+                 personality_llm: Optional[LLMClient] = None):
         self.thread_id = thread_id or str(uuid.uuid4())
         self.memory = memory or InMemoryMemory()
         self.llm_client = llm_client or LLMClient()
@@ -26,7 +27,8 @@ class ChatSession:
             llm_client=self.llm_client,
             tool_executor=self.tool_executor,
             prompt_builder=self.prompt_builder,
-            max_steps=max_steps
+            max_steps=max_steps,
+            personality_llm=personality_llm
         )
     
     async def ask(self, user_text: str, repo_context: str = "") -> Tuple[str, int]:

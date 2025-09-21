@@ -1,4 +1,5 @@
 import subprocess
+import os
 
 class Command:
     def execute(self, params: dict) -> str:
@@ -6,22 +7,34 @@ class Command:
         if not pattern:
             return "Error: No pattern provided to ripgrep."
         
+        # Validate required parameters to prevent excessive token usage
+        search_directory = params.get("search_directory")
+        if not search_directory:
+            return "Error: search_directory is required. Please specify which directory to search in."
+        
+        extension = params.get("extension")
+        if not extension:
+            return "Error: extension is required. Please specify file extension (e.g., 'py', 'js', 'txt')."
+        
+        max_count = params.get("max_count")
+        if not max_count:
+            return "Error: max_count is required. Please specify maximum number of results (recommended: 50-100)."
+        
+        # Validate max_count bounds
+        if max_count < 1 or max_count > 500:
+            return "Error: max_count must be between 1 and 500 to prevent excessive token usage."
+        
+        # Validate search directory exists
+        if not os.path.exists(search_directory):
+            return f"Error: Search directory '{search_directory}' does not exist."
+        
         cmd = ["rg", "--json"]
         
-        # Store max_count for later use (we'll limit total output, not per-file)
-        max_count = params.get("max_count", 300)
-        
-        # Add file extension filter
-        extension = params.get("extension")
-        if extension:
-            cmd.extend(["-g", f"*.{extension}"])
+        # Add file extension filter (now required)
+        cmd.extend(["-g", f"*.{extension}"])
         
         cmd.append(pattern)
-        
-        # Add search directory if specified
-        search_directory = params.get("search_directory")
-        if search_directory:
-            cmd.append(search_directory)
+        cmd.append(search_directory)
         
         try:
             result = subprocess.run(
@@ -38,11 +51,15 @@ class Command:
             
             # Limit output to max_count lines to control response size
             output_lines = result.stdout.strip().split('\n')
+            
+            # Add search parameters info for transparency
+            search_info = f"=== Ripgrep Search Results ===\nPattern: '{pattern}' | Directory: '{search_directory}' | Extension: '*.{extension}' | Max results: {max_count}\n\n"
+            
             if len(output_lines) > max_count:
                 limited_lines = output_lines[:max_count]
-                return '\n'.join(limited_lines) + f"\n... (truncated to {max_count} lines)"
+                return search_info + '\n'.join(limited_lines) + f"\n\n... (truncated to {max_count} lines out of {len(output_lines)} total matches)"
             
-            return result.stdout
+            return search_info + result.stdout
             
         except FileNotFoundError:
             return "Error: ripgrep (rg) not found. Please install ripgrep."
