@@ -1,72 +1,47 @@
-# Agent configuration
-max_steps: 50  # Maximum number of agent steps before stopping
-keep_last: 20  # Number of recent messages to keep in LLM context
-
-# Situation-based LLM configurations
-# Each key represents a specific use case rather than a model name
-llm_configs:
-  # Main agent that handles user requests
-  agent_llm: "gpt_5"
-  
-  # Classifier for AI Shell command routing
-  classifier_llm: "gpt_4_1"
-  
-  # You can add more situation-based configs here:
-  # code_review_llm: "gpt_4_1"
-  # planning_llm: "qwen3_next"
-  # etc.
-
-# Embedding configuration for RAG system
-embedding:
-  model: "all-MiniLM-L6-v2"  # Default ChromaDB model
-  # Options: 
-  # - "all-MiniLM-L6-v2" (default, fast, 384 dimensions)
-  # - "text-embedding-3-small" (OpenAI, 1536 dimensions, requires API key)
-  # - "text-embedding-3-large" (OpenAI, 3072 dimensions, requires API key) 
-  # - "bge-large-en-v1.5" (high quality, 1024 dimensions)
-  # - "e5-large-v2" (multilingual, 1024 dimensions)
-
-# ChromaDB configuration
+ai_shell:
+  classification_confidence_threshold: 0.7
+  classifier_commands: 3
+  context_commands: 5
+  max_history: 50
+  max_output_length: 1000
 chromadb:
-  distance_metric: "cosine"  # cosine, l2 (euclidean), or ip (inner product)
-  hnsw_space: "cosine"       # HNSW index space (cosine, l2, ip)
-  # HNSW performance parameters:
-  hnsw_construction_ef: 200  # Higher = better recall during construction (default: 200)
-  hnsw_m: 16                 # Number of connections per element (default: 16)
-  hnsw_search_ef: 10         # Higher = better recall during search (default: 10)
-
-# RAG configuration
-rag:
-  similarity_threshold: 0.3  # Minimum similarity score for inclusion (30%)
-  max_chunks: 10            # Maximum chunks to include in context
-  fallback_chunks: 10       # Chunks to include if not enough meet threshold
-
-# Model definitions
-# These are referenced by the llm_configs above
+  distance_metric: cosine
+  hnsw_construction_ef: 200
+  hnsw_m: 16
+  hnsw_search_ef: 10
+  hnsw_space: cosine
+embedding:
+  model: all-MiniLM-L6-v2
+keep_last: 20
+llm_configs:
+  agent_llm: gpt_5
+  classifier_llm: gpt_4_1
 llm_providers:
-  gpt_5:
-    model: "openai/gpt-4.1-mini"
-    base_url: "https://openrouter.ai/api/v1"
-    timeout: 20
-    max_retries: 3
-    temperature: 0.5
-    reasoning_effort: "medium"
-    verbosity: "medium"
-    
   gpt_4_1:
-    model: "openai/gpt-4.1-mini"
-    base_url: "https://openrouter.ai/api/v1"
-    timeout: 30
+    base_url: https://openrouter.ai/api/v1
     max_retries: 3
+    model: openai/gpt-4.1-mini
     temperature: 0.1
-    
-  qwen3_next:
-    model: "Qwen/Qwen3-Next-80B-A3B-Thinking"
-    base_url: "https://openrouter.ai/api/v1"
-    timeout: 120
+    timeout: 30
+  gpt_5:
+    base_url: https://openrouter.ai/api/v1
     max_retries: 3
-    response_parser: "qwen_thinking" # Custom parser for handling <think> tags
-    # Recommended settings from docs
-    temperature: 0.6
-    top_p: 0.95
+    model: openai/gpt-4.1-mini
+    reasoning_effort: medium
+    temperature: 0.5
+    timeout: 20
+    verbosity: medium
+  qwen3_next:
+    base_url: https://openrouter.ai/api/v1
+    max_retries: 3
     max_tokens: 32768
+    model: Qwen/Qwen3-Next-80B-A3B-Thinking
+    response_parser: qwen_thinking
+    temperature: 0.6
+    timeout: 120
+    top_p: 0.95
+max_steps: 50
+rag:
+  fallback_chunks: 10
+  max_chunks: 10
+  similarity_threshold: 0.3

@@ -6,6 +6,7 @@ from src.llm.client import LLMClient
 from src.config.settings import AppSettings
 from src.llm.types import LLMConfig
 from src.rag.prompt_templates import PromptTemplateManager
+from src.ai_shell.config import ai_shell_config
 
 
 class CommandClassifier:
@@ -156,7 +157,7 @@ class CommandClassifier:
         
         context = ""
         if command_history:
-            recent = command_history[-3:]
+            recent = command_history[-ai_shell_config.classifier_commands:]
             context = "\nRecent commands:\n"
             for cmd in recent:
                 context += f"$ {cmd['command']} (exit: {cmd.get('exit_code', 'N/A')})\n"

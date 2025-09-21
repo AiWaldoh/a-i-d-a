@@ -6,6 +6,7 @@ import asyncio
 from pathlib import Path
 from datetime import datetime
 from typing import Tuple, Dict, List, Optional
+from src.ai_shell.config import ai_shell_config
 
 
 class CommandExecutor:
@@ -14,7 +15,7 @@ class CommandExecutor:
         self.ssh = self._setup_ssh()
         self.command_history: List[Dict] = []
         self.current_directory = os.getcwd()
-        self.max_history = 50
+        self.max_history = ai_shell_config.max_command_history
         
         self.stateful_commands = ['cd', 'export', 'alias', 'unalias', 'source', '.']
         
@@ -217,7 +218,7 @@ class CommandExecutor:
         
         entry = {
             'command': command,
-            'output': output[:1000],  # Limit output size
+            'output': output[:ai_shell_config.max_output_length],  # Limit output size
             'exit_code': exit_code,
             'directory': self.current_directory,
             'timestamp': datetime.now().isoformat()
