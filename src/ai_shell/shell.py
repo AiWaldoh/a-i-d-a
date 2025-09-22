@@ -79,13 +79,24 @@ class AIShell:
         # Create classifier with proxied client
         self.classifier = CommandClassifier(llm_client=classifier_llm_proxy)
         
-        # Create session components (these will be recreated per task)
+        # Create session components
         memory = InMemoryMemory()
         prompt_builder = PromptBuilder(context_mode="none")
         self.session_memory = memory
         self.session_prompt_builder = prompt_builder
         self.real_llm_client = real_llm_client
         self.real_tool_executor = real_tool_executor
+        
+        # Create a persistent ChatSession that will be reused across requests
+        self.persistent_chat_session = ChatSession(
+            memory=self.session_memory,
+            llm_client=self.real_llm_client,
+            tool_executor=self.real_tool_executor,
+            prompt_builder=self.session_prompt_builder,
+            thread_id=self.session_id,
+            context_mode="none",
+            personality_llm=self.real_personality_llm
+        )
         
         # Track total tokens like main.py
         self.total_tokens = 0
@@ -289,18 +300,24 @@ class AIShell:
             tool_proxy = ToolProxy(self.real_tool_executor, trace_context, self.event_sink)
             personality_proxy = LLMProxy(self.real_personality_llm, trace_context, self.event_sink) if self.real_personality_llm else None
             
-            # Create chat session with proxied clients
-            chat_session = ChatSession(
-                memory=self.session_memory,
-                llm_client=llm_proxy,
-                tool_executor=tool_proxy,
-                prompt_builder=self.session_prompt_builder,
-                thread_id=self.session_id,
-                context_mode="none",
-                personality_llm=personality_proxy
-            )
+            # Update the persistent chat session's clients with the proxied versions for tracing
+            # Save the original clients first
+            original_llm = self.persistent_chat_session.agent.llm_client
+            original_tool = self.persistent_chat_session.agent.tool_executor
+            original_personality = self.persistent_chat_session.agent.personality_llm
             
-            response, tokens_used = await chat_session.ask(full_prompt)
+            # Temporarily swap in the proxied clients
+            self.persistent_chat_session.agent.llm_client = llm_proxy
+            self.persistent_chat_session.agent.tool_executor = tool_proxy
+            self.persistent_chat_session.agent.personality_llm = personality_proxy
+            
+            # Use the persistent session
+            response, tokens_used = await self.persistent_chat_session.ask(full_prompt)
+            
+            # Restore the original clients
+            self.persistent_chat_session.agent.llm_client = original_llm
+            self.persistent_chat_session.agent.tool_executor = original_tool
+            self.persistent_chat_session.agent.personality_llm = original_personality
             self.total_tokens += tokens_used
             
             print(f"\n🤖 {response}")

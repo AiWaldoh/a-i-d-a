@@ -1,4 +1,4 @@
-# AI Coder V3
+# A.I.D.A
 
 A coding assistant that uses AI to help with code tasks.
 
@@ -20,9 +20,9 @@ A coding assistant that uses AI to help with code tasks.
    - `OPENROUTER_API_KEY` or
    - `OPENAI_API_KEY`
 
-3. Make the `aida` command executable:
+3. Make the commands executable:
    ```bash
-   chmod +x aida
+   chmod +x aida aida-shell
    ```
 
 4. Index your code (optional for rag):

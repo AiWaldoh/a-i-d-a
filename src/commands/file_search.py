@@ -30,11 +30,11 @@ class Command:
                 if any(part.startswith('.') for part in parts) or '__pycache__' in parts:
                     continue
                 
-                if path.is_file():
-                    results.append(str(path))
-                    count += 1
-                elif path.is_dir() and params.get("include_dirs", True):
-                    results.append(str(path) + "/")
+                if path.is_file() or path.is_dir():
+                    if path.is_dir():
+                        results.append(str(path) + "/")
+                    else:
+                        results.append(str(path))
                     count += 1
             
             if not results:

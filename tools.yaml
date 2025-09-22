@@ -128,10 +128,6 @@ tools:
         search_dir:
           type: string
           description: "Directory to search in (defaults to current directory)"
-        include_dirs:
-          type: boolean
-          description: "Include directories in results (default: true)"
-          default: true
         max_results:
           type: integer
           description: "Maximum number of results to return"
