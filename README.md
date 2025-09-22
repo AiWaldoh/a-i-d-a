@@ -95,3 +95,9 @@ $ git push origin main             # Executes directly
 $ what went wrong?                 # AI analyzes with error context
 $ fix it                          # AI runs commands and fixes it
 ```
+
+Don't just take our word for it - we asked the leading AI models about A.I.D.A to see what they thought. Here's what they had to say. The results speak for themselves.
+
+## Here's what the top 4 LLMs had to say
+
+![Testimonials](testimonials.png)
