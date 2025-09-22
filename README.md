@@ -1,4 +1,5 @@
 # A.I.D.A
+*(/ˌeɪ aɪ diː ˈeɪ/ - not "Aida")*
 
 An AI command line integrated AI shell that uses AI to help with code tasks. It's half AI coding agent, half AI shell, half AI eval web interface. Is that AI enough for you?
 
