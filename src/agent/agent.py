@@ -179,11 +179,14 @@ class Agent:
                 # Use the original content if provided, otherwise create a description
                 content = message.content or "\n".join(tool_descriptions)
                 
-                recent.append(Message(
+                assistant_message = Message(
                     role="assistant",
                     content=content,
                     meta={"tool_calls": tool_calls_data}
-                ))
+                )
+                recent.append(assistant_message)
+                # Save the assistant's tool calls to persistent memory
+                self.memory.append(self.thread_id, assistant_message)
                 
                 # Execute each tool call
                 for tool_call in message.tool_calls:
@@ -221,11 +224,14 @@ class Agent:
                     })
                     
                     # Add tool result to recent messages
-                    recent.append(Message(
+                    tool_message = Message(
                         role="tool",
                         content=str(tool_output),
                         meta={"tool_call_id": tool_call.id}
-                    ))
+                    )
+                    recent.append(tool_message)
+                    # IMPORTANT: Also save to persistent memory so tool results aren't lost
+                    self.memory.append(self.thread_id, tool_message)
                 
                 # Continue to next iteration to get the model's response after tool execution
                 continue
