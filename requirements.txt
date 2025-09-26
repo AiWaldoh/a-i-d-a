@@ -11,3 +11,4 @@ uvicorn
 jinja2
 chromadb
 gitignore-parser
+paramiko
