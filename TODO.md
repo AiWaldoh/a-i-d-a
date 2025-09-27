@@ -10,26 +10,6 @@
   - Tag embeddings with folder paths for context
   - Allow AI to build its own knowledge base
 
-## 🌐 Web Browsing Capabilities
-
-### Playwright-based Web Tools
-- **Implementation**: Playwright wrapper for web interaction
-- **Tools**:
-  1. **Search Web** (`src/commands/search_web.py`)
-     - Execute web searches
-     - Return relevant results
-  2. **Load URL** (`src/commands/load_url.py`)
-     - Load and parse specific URLs
-     - Extract content for AI processing
-
-## ⚠️ Security Considerations
-
-### Dangerous Command Handling
-- **Note**: We don't need to prevent dangerous commands
-- **Current State**:
-  - `src/commands/run_command.py` - No protection (by design)
-  - `src/ai_shell/shell.py` - Has dangerous command detection (for comparison)
-
 ## 🧬 Meta-Agent Architecture
 
 ### "Brain" Agent Design
@@ -57,3 +37,6 @@
   - Support advanced Google operators (site:, filetype:, intitle:, etc.)
   - Handle authentication/cookies like google_search tool
   - Return targeted results for security research
+
+  <you need an agent to look at the tool call results after a sequence has been made (you do 3x read websites then it goes to run_command, so after>
+  <the 3x, you have the brain llm ask if its enough info or if it needs to call more tools for more info (1 turn max) )>

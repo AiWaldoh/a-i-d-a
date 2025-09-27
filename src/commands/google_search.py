@@ -14,18 +14,17 @@ from browser import GoogleSearch
 class Command:
     def execute(self, params: dict) -> str:
         query = params.get("query")
-        num_results = params.get("num_results", 20)
         
         if not query:
             return json.dumps({"error": "'query' parameter is required"})
         
         try:
-            searcher = GoogleSearch(headless=False)
+            searcher = GoogleSearch(headless=True)
             
             # Always run in a separate thread to avoid event loop conflicts
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, searcher.execute(query, num_results))
+                future = executor.submit(asyncio.run, searcher.execute(query, 20))
                 results = future.result(timeout=60)
             
             structured_results = []

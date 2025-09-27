@@ -177,7 +177,7 @@ class WebpageFetcher(StealthBrowser):
             ''')
         
         # Extract structured content
-        semantic_tags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'td', 'th', 'blockquote', 'pre', 'code', 'span', 'div']
+        semantic_tags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'td', 'th', 'blockquote', 'pre', 'code', 'span']
         
         result = await page.evaluate(f'''
             () => {{
@@ -190,6 +190,10 @@ class WebpageFetcher(StealthBrowser):
                 elements.forEach(el => {{
                     let text = el.innerText?.trim();
                     if (!text) return;
+                    
+                    // Filter out elements with 3 words or less
+                    const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
+                    if (wordCount <= 3) return;
                     
                     // Find all links within this element
                     const links = el.querySelectorAll('a[href]');
