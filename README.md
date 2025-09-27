@@ -89,6 +89,48 @@ An AI command line integrated AI shell that uses AI to help with code tasks. It'
 * `prompts.yaml`: System prompts
 * `tools.yaml`: Agent tools
 
+## Adding New Tools
+
+To add a new tool to the system, you need two components:
+
+1. **Command Implementation**: Create a Python file in `src/commands/` with a `Command` class that has an `execute(params: dict)` method
+2. **Tool Definition**: Add the tool specification to `tools.yaml` with name, description, and schema
+
+Example command structure:
+```python
+class Command:
+    def execute(self, params: dict) -> str:
+        # Your tool logic here
+        return "Result message"
+```
+
+The system automatically discovers and loads all tools defined in `tools.yaml` that have corresponding command files.
+
+## Available Tools
+
+### Command Execution
+- **run_command**: Execute shell commands with proper error handling
+- **restart_shell**: Restart the AI Shell process to reload new tools and configurations
+
+### File Operations  
+- **read_file**: Read file contents with pagination support
+- **write_to_file**: Create or overwrite files with specified content
+
+### Search & Discovery
+- **semantic_search**: Semantic search over codebase using ChromaDB for meaning-based code discovery
+- **ripgrep**: Fast text pattern search in files with directory and extension filtering
+- **file_search**: Fast file and directory search using glob patterns
+
+### Web Operations
+- **google_search**: Search Google with keywords (3 words max)
+- **read_website**: Load and extract structured content from websites, with smart filtering for meaningful text
+
+### System Management
+- **install_app**: Install programs non-interactively with sudo
+
+### Network
+- **vpn_connection**: Connect to OpenVPN servers using .ovpn configuration files
+
 ## How It Works
 
 **AI Shell**: Uses intelligent classification to route input between direct command execution and AI processing. Commands like `ls` execute normally, while natural language like "show me files" routes to the AI agent with command history context.
