@@ -26,12 +26,21 @@ An AI command line integrated AI shell that uses AI to help with code tasks. It'
    chmod +x aida aida-shell
    ```
 
-4. Index your code (optional for rag):
+4. **VPN Tool Setup** (optional - for OpenVPN connections):
+   ```bash
+   # Allow passwordless sudo for OpenVPN (recommended)
+   sudo visudo
+   # Add this line at the bottom:
+   ALL ALL=(ALL) NOPASSWD: /usr/sbin/openvpn
+   ```
+   This enables the `vpn_connection` tool to connect to VPN servers without password prompts.
+
+5. Index your code (optional for rag):
    ```bash
    python3 indexer.py
    ```
 
-5. Run the AI Shell or traditional agent:
+6. Run the AI Shell or traditional agent:
 
    **AI Shell** (intelligent command line):
    ```bash
@@ -67,7 +76,7 @@ An AI command line integrated AI shell that uses AI to help with code tasks. It'
    - Token usage tracking per turn and total
    - Full event tracing for all interactions
 
-6. Run web interface:
+7. Run web interface:
    ```bash
    python3 -m web_app.main
    ```

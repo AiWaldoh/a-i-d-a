@@ -39,3 +39,21 @@
   - Dynamically adjust strategy based on progress
   - Modify prompts and context as needed
   - Act as a meta-cognitive layer above the ReAct loop
+
+## 🔍 Security Research Tools
+
+### Exploit Database Search Tool
+- **File**: `src/commands/exploitdb_search.py`
+- **Purpose**: Search exploit-db.com for vulnerabilities and exploits
+- **Features**:
+  - Search by software name, version, CVE
+  - Return exploit details and references
+  - Parse exploit metadata
+
+### Google Dork Search Tool
+- **File**: `src/commands/google_dork.py`
+- **Purpose**: Execute Google dork queries for security research
+- **Features**:
+  - Support advanced Google operators (site:, filetype:, intitle:, etc.)
+  - Handle authentication/cookies like google_search tool
+  - Return targeted results for security research

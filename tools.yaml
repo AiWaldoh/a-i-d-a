@@ -152,3 +152,53 @@ tools:
           default: false
       required: ["reasoning"]
     category: system_management
+  - name: vpn_connection
+    description: "Connect to OpenVPN using config file"
+    schema:
+      type: object
+      properties:
+        reasoning:
+          type: string
+          description: "Why connecting to VPN helps achieve the current goal"
+        config_file:
+          type: string
+          description: "Path to .ovpn config file"
+      required: ["reasoning", "config_file"]
+    category: network
+  - name: google_search
+    description: "Search Google using stealth browser automation to avoid detection. Returns structured JSON with order keys."
+    schema:
+      type: object
+      properties:
+        reasoning:
+          type: string
+          description: "Why searching Google helps achieve the current goal"
+        query:
+          type: string
+          description: "Search query to execute on Google"
+        num_results:
+          type: integer
+          description: "Number of results to return"
+          default: 20
+      required: ["reasoning", "query"]
+    category: search
+  - name: fetch_webpage
+    description: "Fetch webpage content using stealth browser automation with cookie handling"
+    schema:
+      type: object
+      properties:
+        reasoning:
+          type: string
+          description: "Why fetching this webpage helps achieve the current goal"
+        url:
+          type: string
+          description: "URL of the webpage to fetch"
+        output_file:
+          type: string
+          description: "Optional file path to save the HTML content"
+        headless:
+          type: boolean
+          description: "Whether to run browser in headless mode"
+          default: false
+      required: ["reasoning", "url"]
+    category: web
