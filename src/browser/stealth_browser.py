@@ -107,24 +107,123 @@ class WebpageFetcher(StealthBrowser):
     def __init__(self, headless: bool = False, user_agent: Optional[str] = None):
         super().__init__(headless, user_agent)
     
-    async def execute(self, url: str, output_file: Optional[str] = None) -> str:
+    async def execute(self, url: str, output_file: Optional[str] = None) -> Dict[str, str]:
         async with async_playwright() as p:
             browser, page = await self._create_stealth_page(p)
             
-            await page.goto(url)
-            await page.wait_for_load_state('networkidle')
+            response = await page.goto(url, timeout=20000)
+            status_code = response.status if response else "Unknown"
+            
+            # Try networkidle first, fallback to domcontentloaded if it times out
+            try:
+                await page.wait_for_load_state('networkidle', timeout=10000)
+            except:
+                try:
+                    await page.wait_for_load_state('domcontentloaded', timeout=5000)
+                except:
+                    # If all else fails, just wait a bit for content to load
+                    await asyncio.sleep(3)
             
             await self._handle_popups(page)
             
             html_content = await page.content()
+            structured_data = await self._extract_structured_content(page)
             
-            if output_file:
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    f.write(html_content)
+            # Save full HTML
+            html_file = output_file
+            if not html_file:
+                from urllib.parse import urlparse
+                domain = urlparse(url).netloc.replace('www.', '').replace('.', '_')
+                html_file = f"{domain}.html"
+            
+            with open(html_file, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            # Save structured content
+            structured_file = html_file.replace('.html', '_structured.json')
+            import json
+            with open(structured_file, 'w', encoding='utf-8') as f:
+                json.dump(structured_data, f, indent=2, ensure_ascii=False)
             
             await browser.close()
             
-            return html_content
+            return {
+                'html_file': html_file,
+                'structured_file': structured_file,
+                'url': url,
+                'status_code': status_code,
+                'text_elements': len(structured_data['structured_text']),
+                'links_found': len(structured_data['link_map'])
+            }
+    
+    async def _extract_structured_content(self, page: Page) -> Dict:
+        # Remove unwanted elements
+        selectors_to_remove = [
+            'header',
+            'footer', 
+            'nav',
+            '[role="navigation"]',
+            '.sidebar',
+            '#sidebar',
+            'aside',
+            'script',
+            'style',
+            'noscript'
+        ]
+        
+        for selector in selectors_to_remove:
+            await page.evaluate(f'''
+                document.querySelectorAll('{selector}').forEach(el => el.remove())
+            ''')
+        
+        # Extract structured content
+        semantic_tags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'td', 'th', 'blockquote', 'pre', 'code', 'span', 'div']
+        
+        result = await page.evaluate(f'''
+            () => {{
+                const tags = {semantic_tags};
+                const selector = tags.join(',');
+                const elements = document.querySelectorAll(selector);
+                const structured_text = [];
+                const link_map = [];
+                
+                elements.forEach(el => {{
+                    let text = el.innerText?.trim();
+                    if (!text) return;
+                    
+                    // Find all links within this element
+                    const links = el.querySelectorAll('a[href]');
+                    links.forEach(link => {{
+                        const linkText = link.innerText.trim();
+                        const href = link.href;
+                        
+                        if (linkText && href) {{
+                            const linkIndex = link_map.length;
+                            link_map.push({{
+                                index: linkIndex,
+                                text: linkText,
+                                href: href
+                            }});
+                            
+                            // Replace link text with placeholder in the element's text
+                            text = text.replace(linkText, `[LINK:${{linkIndex}}]`);
+                        }}
+                    }});
+                    
+                    structured_text.push({{
+                        tag: el.tagName.toLowerCase(),
+                        text: text
+                    }});
+                }});
+                
+                return {{
+                    structured_text: structured_text,
+                    link_map: link_map
+                }};
+            }}
+        ''')
+        
+        return result
     
     async def _handle_popups(self, page: Page):
         cookie_selectors = [

@@ -27,8 +27,8 @@ def test_webpage_fetcher():
     print("="*50)
     cmd = FetchWebpageCommand()
     result = cmd.execute({
-        "url": "https://google.com",
-        "headless": True
+        "url": "https://www.politico.com/news/2025/09/27/donald-trump-portland-military-protest-00583423",
+        "headless": False
     })
     print(result)
     print("\n" + "="*50 + "\n")

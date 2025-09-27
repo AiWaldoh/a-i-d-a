@@ -33,9 +33,38 @@ class Command:
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 future = executor.submit(asyncio.run, fetcher.execute(url, output_file))
-                html_content = future.result(timeout=60)
+                result = future.result(timeout=60)
             
-            return f"Successfully fetched {url} and saved to {output_file}"
+            return f"""<webpage_fetch_result>
+    <operation_status>success</operation_status>
+    <target_url>{url}</target_url>
+    <http_status>{result['status_code']}</http_status>
+    
+    <files_created>
+        <raw_html_file>{result['html_file']}</raw_html_file>
+        <structured_data_file>{result['structured_file']}</structured_data_file>
+    </files_created>
+    
+    <extraction_summary>
+        <text_elements_found>{result['text_elements']}</text_elements_found>
+        <links_discovered>{result['links_found']}</links_discovered>
+    </extraction_summary>
+    
+    <structured_format_guide>
+        <description>
+            The structured JSON contains two main arrays:
+            - structured_text: Text content with semantic HTML tags (h1-h6, p, li, etc.)
+            - link_map: All hyperlinks found, referenced as [LINK:N] placeholders in text
+        </description>
+        
+        <jq_extraction_patterns>
+            <all_text_content>jq '.structured_text[].text' {result['structured_file']}</all_text_content>
+            <all_hyperlinks>jq '.link_map[] | "\\(.text): \\(.href)"' {result['structured_file']}</all_hyperlinks>
+            <headings_only>jq '.structured_text[] | select(.tag | test("h[1-6]")) | .text' {result['structured_file']}</headings_only>
+            <paragraph_content>jq '.structured_text[] | select(.tag == "p") | .text' {result['structured_file']}</paragraph_content>
+        </jq_extraction_patterns>
+    </structured_format_guide>
+</webpage_fetch_result>"""
             
         except Exception as e:
             return f"Error fetching webpage: {str(e)}"
