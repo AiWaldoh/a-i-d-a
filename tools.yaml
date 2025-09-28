@@ -191,3 +191,16 @@ tools:
           description: "URL of the webpage to read"
       required: ["reasoning", "url"]
     category: web
+  - name: autorecon_scan
+    description: "Run AutoRecon reconnaissance scan against a target IP address"
+    schema:
+      type: object
+      properties:
+        reasoning:
+          type: string
+          description: "Detailed and thorough explanation why running AutoRecon against this target helps achieve the current goal"
+        ip_address:
+          type: string
+          description: "Target IP address to scan with AutoRecon"
+      required: ["reasoning", "ip_address"]
+    category: security

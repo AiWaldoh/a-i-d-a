@@ -2,6 +2,7 @@ import json
 import yaml
 import time
 import os
+import asyncio
 from typing import List, Dict, Any, Optional, Tuple
 
 from src.llm.client import LLMClient
@@ -121,11 +122,28 @@ class Agent:
             # 1. Build the structured list of messages for the LLM
             messages = self.prompt_builder.build(summary, recent, self.tools, user_prompt, repo_context)
             
-            # 2. Get the full response object from the LLM with tools
-            response = await self.llm_client.get_response(messages=messages, tools=self.tools)
+            # 2. Get the full response object from the LLM with tools (with retry)
+            response = None
+            max_retries = 5
+            
+            for retry_attempt in range(max_retries):
+                try:
+                    response = await self.llm_client.get_response(messages=messages, tools=self.tools)
+                    if response and response.choices:
+                        break  # Success, exit retry loop
+                    else:
+                        if retry_attempt < max_retries - 1:  # Don't print on last attempt
+                            print(f"⚠️ LLM returned empty response, retrying... ({retry_attempt + 1}/{max_retries})")
+                            await asyncio.sleep(1)  # Wait 1 second before retry
+                except Exception as e:
+                    if retry_attempt < max_retries - 1:
+                        print(f"⚠️ LLM error, retrying... ({retry_attempt + 1}/{max_retries}): {e}")
+                        await asyncio.sleep(1)
+                    else:
+                        print(f"❌ LLM error on final attempt: {e}")
             
             if not response or not response.choices:
-                error_message = "❌ Agent failed to get a valid response from the LLM. Stopping."
+                error_message = f"❌ Agent failed to get a valid response from the LLM after {max_retries} attempts. Stopping."
                 print(error_message)
                 self.memory.append(self.thread_id, Message(role="assistant", content=error_message))
                 return error_message, total_tokens
