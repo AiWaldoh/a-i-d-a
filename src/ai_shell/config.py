@@ -46,9 +46,9 @@ class AIShellConfig:
 def _load_ai_shell_config() -> AIShellConfig:
     """Load AI Shell configuration from main config.yaml"""
     try:
-        config_path = get_absolute_path("config.yaml")
-        with open(config_path, "r") as f:
-            yaml_config = yaml.safe_load(f) or {}
+        from src.utils.paths import read_config_file
+        config_content = read_config_file("config.yaml")
+        yaml_config = yaml.safe_load(config_content) or {}
         
         ai_shell_config = yaml_config.get("ai_shell", {})
         

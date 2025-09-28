@@ -84,8 +84,9 @@ class Agent:
     def _load_tools(self) -> List[Dict[str, Any]]:
         """Load tools from tools.yaml and convert to OpenAI format."""
         try:
-            with open(get_absolute_path("tools.yaml"), 'r') as f:
-                tools_config = yaml.safe_load(f)
+            from src.utils.paths import read_config_file
+            tools_content = read_config_file("tools.yaml")
+            tools_config = yaml.safe_load(tools_content)
             
             openai_tools = []
             for tool in tools_config.get("tools", []):
@@ -318,8 +319,9 @@ class Agent:
         tool_summary_str = "\n".join(tool_summary) if tool_summary else "No tools were used"
         
         # Load personality prompt template
-        with open(get_absolute_path("prompts.yaml"), 'r') as f:
-            prompts = yaml.safe_load(f)
+        from src.utils.paths import read_config_file
+        prompts_content = read_config_file("prompts.yaml")
+        prompts = yaml.safe_load(prompts_content)
         
         personality_prompt = prompts.get('personality_enhancement', '')
         personality_prompt = personality_prompt.replace("{user_request}", user_request)

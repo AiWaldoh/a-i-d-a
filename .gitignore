@@ -45,6 +45,10 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# Zipapp bundles
+*.pyz
+aida_bundle/
+
 # PyInstaller
 *.manifest
 *.spec

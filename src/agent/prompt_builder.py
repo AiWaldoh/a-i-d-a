@@ -12,8 +12,9 @@ class PromptBuilder:
     
     def _load_prompts(self):
         try:
-            with open(get_absolute_path("prompts.yaml"), 'r') as f:
-                self.prompts = yaml.safe_load(f)
+            from src.utils.paths import read_config_file
+            prompts_content = read_config_file("prompts.yaml")
+            self.prompts = yaml.safe_load(prompts_content)
         except Exception as e:
             print(f"Error loading prompts: {e}")
             self.prompts = {}

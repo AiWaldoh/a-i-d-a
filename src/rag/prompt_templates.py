@@ -14,14 +14,17 @@ class PromptTemplateManager:
         self.templates = self._load_templates()
     
     def _load_templates(self) -> Dict[str, str]:
-        if not self.file_path.exists():
-            raise FileNotFoundError(f"Prompt template file not found: {self.file_path}")
-        
-        with open(self.file_path, 'r') as f:
-            data = yaml.safe_load(f)
+        try:
+            from src.utils.paths import read_config_file
+            # Extract just the filename from the path
+            filename = self.file_path.name if hasattr(self.file_path, 'name') else str(self.file_path).split('/')[-1]
+            content = read_config_file(filename)
+            data = yaml.safe_load(content)
             if not isinstance(data, dict):
                 raise ValueError(f"Invalid prompt template file format: {self.file_path}")
             return data
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Prompt template file not found: {self.file_path}")
     
     def get(self, template_name: str, **kwargs) -> str:
         if template_name not in self.templates:

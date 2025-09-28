@@ -5,18 +5,25 @@ from dataclasses import asdict
 from dotenv import load_dotenv
 
 from src.llm.types import LLMConfig
-from src.utils.paths import get_absolute_path
+from src.utils.paths import get_absolute_path, read_config_file
 
 
 class AppSettings:
-    load_dotenv(get_absolute_path('.env'))
+    # Load .env file - this will work for external .env files
+    try:
+        env_path = get_absolute_path('.env')
+        if env_path.exists():
+            load_dotenv(env_path)
+    except:
+        # If .env doesn't exist, that's okay - environment variables might be set
+        pass
 
-    _config_path = get_absolute_path("config.yaml")
-    if not _config_path.exists():
-        raise FileNotFoundError(f"Configuration file not found at: {_config_path}")
-
-    with open(_config_path, "r") as f:
-        _yaml = yaml.safe_load(f) or {}
+    # Load config.yaml using the zipapp-aware function
+    try:
+        _yaml_content = read_config_file("config.yaml")
+        _yaml = yaml.safe_load(_yaml_content) or {}
+    except FileNotFoundError:
+        raise FileNotFoundError("Configuration file 'config.yaml' not found. Make sure it exists in the same directory as the application.")
 
     if "llm_configs" not in _yaml or "llm_providers" not in _yaml:
         raise ValueError("'config.yaml' is missing 'llm_configs' or 'llm_providers'.")
