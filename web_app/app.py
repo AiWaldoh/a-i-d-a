@@ -180,10 +180,20 @@ def discover_metrics_files() -> List[Dict[str, Any]]:
     """Discover all trace files in the tmp directory - OPTIMIZED FOR SPEED"""
     metrics_files = []
 
-    # Look for trace files in the tmp directory
-    pattern = str(METRICS_DIR / "trace_*.jsonl")
+    # Look for trace files in the tmp directory (including brain_trace files)
+    patterns = [
+        str(METRICS_DIR / "trace_*.jsonl"),
+        str(METRICS_DIR / "brain_trace_*.jsonl")
+    ]
+    
+    all_files = []
+    for pattern in patterns:
+        all_files.extend(glob.glob(pattern))
+    
+    # Remove duplicates and sort
+    all_files = sorted(set(all_files))
 
-    for file_path in glob.glob(pattern):
+    for file_path in all_files:
         path_obj = Path(file_path)
         try:
             # Use fast metadata extraction instead of full parsing
@@ -246,6 +256,9 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
         tool_responses = {}
         total_duration = 0
         session_id = None
+        is_brain_session = False
+        brain_target = None
+        brain_goal = None
         
         # First pass: collect all events
         for event in events:
@@ -256,6 +269,22 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
                 context_mode = event['data'].get('context_mode', 'none')
                 start_time = datetime.fromisoformat(event['timestamp'].replace('Z', '+00:00'))
                 # For sessions, we'll show the first user request as the main one
+            
+            elif event_type == 'brain_session_started':
+                is_brain_session = True
+                session_id = event.get('trace_id', '')
+                brain_target = event['data'].get('target', 'Unknown')
+                brain_goal = event['data'].get('goal', 'Unknown goal')
+                user_request = f"Brain Session: {brain_goal} (Target: {brain_target})"
+                start_time = datetime.fromisoformat(event['timestamp'].replace('Z', '+00:00'))
+                context_mode = 'brain'
+            
+            elif event_type == 'brain_session_completed':
+                end_time = datetime.fromisoformat(event['timestamp'].replace('Z', '+00:00'))
+                total_duration = event['data'].get('iterations', 0)
+            
+            elif event_type == 'brain_session_failed':
+                end_time = datetime.fromisoformat(event['timestamp'].replace('Z', '+00:00'))
             
             elif event_type == 'task_started':
                 if user_request is None:  # Only capture first user request for display
@@ -349,6 +378,42 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
                     'events': [event]
                 })
             
+            elif event_type == 'brain_session_started':
+                # Add brain session start marker
+                grouped_events.append({
+                    'type': 'brain_session_start',
+                    'step': 0,
+                    'timestamp': timestamp,
+                    'session_id': event_trace_id,
+                    'target': data.get('target', ''),
+                    'goal': data.get('goal', ''),
+                    'max_iterations': data.get('max_iterations', 0),
+                    'events': [event]
+                })
+                in_task = True
+                current_trace_id = event_trace_id
+            
+            elif event_type == 'brain_session_completed':
+                # Brain session completion
+                grouped_events.append({
+                    'type': 'brain_session_complete',
+                    'timestamp': timestamp,
+                    'iterations': data.get('iterations', 0),
+                    'target_state': data.get('target_state', {}),
+                    'events': [event]
+                })
+                in_task = False
+            
+            elif event_type == 'brain_session_failed':
+                # Brain session failure
+                grouped_events.append({
+                    'type': 'brain_session_failed',
+                    'timestamp': timestamp,
+                    'error': data.get('error', ''),
+                    'events': [event]
+                })
+                in_task = False
+            
             elif event_type == 'task_started':
                 # Don't reset step counter for sessions - keep it incrementing
                 in_task = True
@@ -380,13 +445,26 @@ def parse_trace_file(file_path: str) -> 'TraceMetricsFile':
                 
             elif event_type == 'llm_request' and event_trace_id == current_trace_id:
                 # Start a new cycle (only if it belongs to current task)
+                # Check if this is brain or worker by looking at the TraceContext user_request
+                # For brain sessions, we'll check the first llm_request data
+                is_brain_llm = False
+                is_worker_llm = False
+                
+                if is_brain_session and llm_request_data:
+                    # Try to detect Brain vs Worker from messages or context
+                    # Brain requests will have the goal in them
+                    # Worker requests will have task execution
+                    pass  # Will be determined from event flow
+                
                 if current_cycle:
                     # Finish previous cycle if exists
                     task_step += 1
                     grouped_events.append({
                         'type': 'react_cycle',
                         'step': task_step,
-                        'events': current_cycle
+                        'events': current_cycle,
+                        'is_brain': is_brain_llm,
+                        'is_worker': is_worker_llm
                     })
                 current_cycle = [event]
                 llm_request_data = data

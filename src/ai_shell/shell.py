@@ -219,6 +219,10 @@ class AIShell:
             await self._enhance_self()
             return
         
+        if user_input.startswith('brain-session'):
+            await self._handle_brain_session_command(user_input)
+            return
+        
         try:
             command_history = self.executor.get_recent_history()
             is_command, confidence = await self.classifier.classify(user_input, command_history)
@@ -433,6 +437,8 @@ Built-in commands:
   history     - Show recent commands with timestamps
   help        - Show this help
   enhance-self - Analyze and improve the shell capabilities
+  brain-session - Start autonomous AI pentester session
+    Usage: brain-session --target <IP> [--goal <text>] [--prompt <text>]
 
 Tips:
   • The AI remembers your recent commands and their output
@@ -468,6 +474,73 @@ Tips:
             
         except Exception as e:
             print(f"❌ Self-enhancement failed: {e}")
+            if self.config.debug_mode:
+                import traceback
+                traceback.print_exc()
+    
+    async def _handle_brain_session_command(self, user_input: str):
+        """Handle brain-session command with argument parsing"""
+        try:
+            # Parse brain-session command
+            parts = user_input.split()
+            if len(parts) < 3:
+                print("Usage: brain-session --target <IP> [options]")
+                print("Options:")
+                print("  --target <IP>        Target IP address (required)")
+                print("  --goal <text>        Goal description")
+                print("  --prompt <text>      Custom brain prompt")
+                print("  --prompt-file <path> Custom brain prompt file")
+                print("  --max-iterations <n> Maximum iterations (default: 50)")
+                return
+            
+            # Simple argument parsing
+            args = {}
+            i = 1
+            while i < len(parts):
+                if parts[i] == '--target' and i + 1 < len(parts):
+                    args['target'] = parts[i + 1]
+                    i += 2
+                elif parts[i] == '--goal' and i + 1 < len(parts):
+                    # Handle multi-word goals
+                    goal_parts = []
+                    i += 1
+                    while i < len(parts) and not parts[i].startswith('--'):
+                        goal_parts.append(parts[i])
+                        i += 1
+                    args['goal'] = ' '.join(goal_parts)
+                elif parts[i] == '--prompt' and i + 1 < len(parts):
+                    # Handle multi-word prompts
+                    prompt_parts = []
+                    i += 1
+                    while i < len(parts) and not parts[i].startswith('--'):
+                        prompt_parts.append(parts[i])
+                        i += 1
+                    args['prompt'] = ' '.join(prompt_parts)
+                elif parts[i] == '--prompt-file' and i + 1 < len(parts):
+                    args['prompt_file'] = parts[i + 1]
+                    i += 2
+                elif parts[i] == '--max-iterations' and i + 1 < len(parts):
+                    args['max_iterations'] = parts[i + 1]
+                    i += 2
+                else:
+                    i += 1
+            
+            if 'target' not in args:
+                print("❌ Error: --target is required")
+                return
+            
+            # Execute brain session via the tool system
+            params = {
+                'reasoning': f"Starting autonomous brain session for target {args['target']}",
+                **args
+            }
+            
+            # Use the existing tool executor
+            result = self.real_tool_executor.execute_tool('brain_session', params)
+            print(result)
+            
+        except Exception as e:
+            print(f"❌ Error in brain session: {e}")
             if self.config.debug_mode:
                 import traceback
                 traceback.print_exc()

@@ -42,6 +42,11 @@ llm_providers:
     timeout: 120
     top_p: 0.95
 max_steps: 50
+brain:
+  max_iterations: 50
+  default_goal: "Complete penetration test"
+  enable_detailed_logging: true
+  pause_between_iterations: 1
 rag:
   fallback_chunks: 10
   max_chunks: 10

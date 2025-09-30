@@ -72,6 +72,13 @@ class AppSettings:
     RAG_SIMILARITY_THRESHOLD = float(os.getenv("RAG_SIMILARITY_THRESHOLD", _rag_config.get("similarity_threshold", 0.3)))
     RAG_MAX_CHUNKS = int(os.getenv("RAG_MAX_CHUNKS", _rag_config.get("max_chunks", 10)))
     RAG_FALLBACK_CHUNKS = int(os.getenv("RAG_FALLBACK_CHUNKS", _rag_config.get("fallback_chunks", 10)))
+    
+    # Brain configuration
+    _brain_config = _yaml.get("brain", {})
+    BRAIN_MAX_ITERATIONS = int(os.getenv("BRAIN_MAX_ITERATIONS", _brain_config.get("max_iterations", 50)))
+    BRAIN_DEFAULT_GOAL = os.getenv("BRAIN_DEFAULT_GOAL", _brain_config.get("default_goal", "Complete penetration test"))
+    BRAIN_DETAILED_LOGGING = os.getenv("BRAIN_DETAILED_LOGGING", str(_brain_config.get("enable_detailed_logging", True))).lower() == 'true'
+    BRAIN_PAUSE_ITERATIONS = int(os.getenv("BRAIN_PAUSE_ITERATIONS", _brain_config.get("pause_between_iterations", 1)))
 
 
     # Default LLM_CONFIG (uses agent_llm configuration)

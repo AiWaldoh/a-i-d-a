@@ -204,3 +204,30 @@ tools:
           description: "Target IP address to scan with AutoRecon"
       required: ["reasoning", "ip_address"]
     category: security
+  - name: brain_session
+    description: "Start autonomous brain session with AI Senior Pentester guiding Worker agent"
+    schema:
+      type: object
+      properties:
+        reasoning:
+          type: string
+          description: "Detailed explanation why starting a brain session helps achieve the current goal"
+        target:
+          type: string
+          description: "Target IP address for penetration testing"
+        goal:
+          type: string
+          description: "High-level goal for the penetration test"
+          default: "Complete penetration test"
+        prompt_file:
+          type: string
+          description: "Path to custom brain prompt file (optional)"
+        prompt:
+          type: string
+          description: "Inline custom brain prompt (optional)"
+        max_iterations:
+          type: integer
+          description: "Maximum number of brain-worker iterations"
+          default: 50
+      required: ["reasoning", "target"]
+    category: security

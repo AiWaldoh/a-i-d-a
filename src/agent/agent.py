@@ -124,7 +124,8 @@ class Agent:
             
             # 2. Get the full response object from the LLM with tools (with retry)
             response = None
-            max_retries = 5
+            max_retries = 10  # Increased from 5 to 10
+            retry_delay = 2   # Increased from 1 to 2 seconds
             
             for retry_attempt in range(max_retries):
                 try:
@@ -133,12 +134,12 @@ class Agent:
                         break  # Success, exit retry loop
                     else:
                         if retry_attempt < max_retries - 1:  # Don't print on last attempt
-                            print(f"⚠️ LLM returned empty response, retrying... ({retry_attempt + 1}/{max_retries})")
-                            await asyncio.sleep(1)  # Wait 1 second before retry
+                            print(f"⚠️ LLM returned empty response, retrying in {retry_delay}s... ({retry_attempt + 1}/{max_retries})")
+                            await asyncio.sleep(retry_delay)
                 except Exception as e:
                     if retry_attempt < max_retries - 1:
-                        print(f"⚠️ LLM error, retrying... ({retry_attempt + 1}/{max_retries}): {e}")
-                        await asyncio.sleep(1)
+                        print(f"⚠️ LLM error, retrying in {retry_delay}s... ({retry_attempt + 1}/{max_retries}): {e}")
+                        await asyncio.sleep(retry_delay)
                     else:
                         print(f"❌ LLM error on final attempt: {e}")
             
