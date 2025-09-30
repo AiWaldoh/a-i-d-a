@@ -1,5 +1,6 @@
 import asyncio
 import uuid
+import yaml
 from datetime import datetime
 from typing import Dict, Any, List
 
@@ -27,6 +28,8 @@ class BrainOrchestrator:
         self.max_iterations = max_iterations
         self.iteration_count = 0
         
+        self.prompts = self._load_prompts()
+        
         # Create session IDs
         self.session_id = str(uuid.uuid4())
         self.brain_thread_id = str(uuid.uuid4())
@@ -52,6 +55,14 @@ class BrainOrchestrator:
         
         # Initialize agents
         self._setup_agents()
+    
+    def _load_prompts(self) -> dict:
+        try:
+            with open(get_absolute_path("prompts.yaml"), 'r') as f:
+                return yaml.safe_load(f)
+        except Exception as e:
+            print(f"Warning: Failed to load prompts.yaml: {e}")
+            return {}
     
     def _setup_agents(self):
         """Initialize Brain and Worker agents"""
@@ -114,14 +125,13 @@ class BrainOrchestrator:
     
     def _initialize_brain(self):
         """Initialize the brain agent with target information and custom prompt"""
-        initialization_message = f"""{self.brain_prompt}
-
-TARGET INFORMATION:
-- Target IP: {self.target}
-- Goal: {self.goal}
-- Current Phase: RECONNAISSANCE
-
-Your first task is to begin reconnaissance of the target. Start with basic port scanning."""
+        init_template = self.prompts.get("brain_agent_init", "{brain_prompt}\n\nTARGET INFORMATION:\n- Target IP: {target}\n- Goal: {goal}\n- Current Phase: RECONNAISSANCE\n\nYour first task is to begin reconnaissance of the target. Start with basic port scanning.")
+        
+        initialization_message = init_template.format(
+            brain_prompt=self.brain_prompt,
+            target=self.target,
+            goal=self.goal
+        )
         
         self.brain_session.memory.append(
             self.brain_thread_id,
@@ -241,22 +251,14 @@ Your first task is to begin reconnaissance of the target. Start with basic port 
     
     async def _get_brain_decision(self) -> str:
         """Get the next decision from the brain agent"""
-        # Build context for brain
         context = self._build_brain_context()
         
-        brain_prompt = f"""Based on the current target state, decide the next action.
-
-CURRENT STATE:
-{context}
-
-Provide a specific task for the worker to execute. Be direct and actionable.
-Examples:
-- "Run nmap scan on {self.target}"
-- "Check HTTP service on port 80 for vulnerabilities"
-- "Try default credentials on admin panel"
-- "COMPLETE: Successfully gained access to target"
-
-Your decision:"""
+        decision_template = self.prompts.get("brain_agent_decision", "Based on the current target state, decide the next action.\n\nCURRENT STATE:\n{context}\n\nProvide a specific task for the worker to execute. Be direct and actionable.\nExamples:\n- \"Run nmap scan on {target}\"\n- \"Check HTTP service on port 80 for vulnerabilities\"\n- \"Try default credentials on admin panel\"\n- \"COMPLETE: Successfully gained access to target\"\n\nYour decision:")
+        
+        brain_prompt = decision_template.format(
+            context=context,
+            target=self.target
+        )
         
         try:
             response, _ = await self.brain_session.ask(brain_prompt)
@@ -267,9 +269,9 @@ Your decision:"""
     
     async def _execute_worker_task(self, task: str) -> str:
         """Have the worker execute the given task"""
-        worker_prompt = f"""Execute this specific task: {task}
-
-Use the appropriate tools to complete this task. Be thorough and report back with detailed results."""
+        worker_template = self.prompts.get("worker_agent_task", "Execute this specific task: {task}\n\nUse the appropriate tools to complete this task. Be thorough and report back with detailed results.")
+        
+        worker_prompt = worker_template.format(task=task)
         
         try:
             response, _ = await self.worker_session.ask(worker_prompt)

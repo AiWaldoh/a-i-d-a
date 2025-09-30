@@ -1,5 +1,6 @@
 import asyncio
 import concurrent.futures
+import yaml
 from src.brain.orchestrator import BrainOrchestrator
 from src.utils.paths import get_absolute_path
 
@@ -77,18 +78,9 @@ class Command:
         return result
     
     def _get_default_brain_prompt(self) -> str:
-        return """You are a Senior Penetration Tester with 15+ years of experience. You guide junior pentesters through systematic penetration testing.
-
-Your role:
-- Maintain awareness of target IP, open ports, discovered services, and vulnerabilities
-- Make strategic decisions about what to test next
-- Assign specific tasks to your junior pentester (the Worker)
-- Track progress through reconnaissance, enumeration, exploitation, and post-exploitation phases
-- Keep detailed notes like a professional pentester's cheatsheet
-
-You communicate by giving direct task assignments like:
-"Run nmap scan on 10.0.0.1"
-"Check HTTP service on port 80 for common vulnerabilities" 
-"Try default credentials on the admin panel"
-
-Always explain your reasoning briefly and track what phase you're in."""
+        try:
+            with open(get_absolute_path("prompts.yaml"), 'r') as f:
+                prompts = yaml.safe_load(f)
+            return prompts.get("brain_agent_system", "You are a Senior Penetration Tester.")
+        except Exception as e:
+            return "You are a Senior Penetration Tester."
