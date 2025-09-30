@@ -21,13 +21,13 @@ class AppSettings:
     if "llm_configs" not in _yaml or "llm_providers" not in _yaml:
         raise ValueError("'config.yaml' is missing 'llm_configs' or 'llm_providers'.")
 
-    # Get the agent_llm model name from llm_configs
-    if "agent_llm" not in _yaml["llm_configs"]:
-        raise ValueError("'llm_configs' is missing 'agent_llm' configuration.")
+    # Get the worker_llm model name from llm_configs (used as default for all execution tasks)
+    if "worker_llm" not in _yaml["llm_configs"]:
+        raise ValueError("'llm_configs' is missing 'worker_llm' configuration.")
     
-    _agent_model_name = _yaml["llm_configs"]["agent_llm"]
+    _agent_model_name = _yaml["llm_configs"]["worker_llm"]
     if _agent_model_name not in _yaml["llm_providers"]:
-        raise ValueError(f"Model '{_agent_model_name}' referenced by agent_llm not found in llm_providers.")
+        raise ValueError(f"Model '{_agent_model_name}' referenced by worker_llm not found in llm_providers.")
     
     _llm_yaml = _yaml["llm_providers"][_agent_model_name]
 

@@ -70,8 +70,8 @@ class BrainOrchestrator:
         command_executor = CommandExecutor()
         
         # Create LLM clients
-        brain_llm = LLMClient(AppSettings.get_llm_config("agent_llm"))
-        worker_llm = LLMClient(AppSettings.get_llm_config("agent_llm"))
+        brain_llm = LLMClient(AppSettings.get_llm_config("brain_llm"))
+        worker_llm = LLMClient(AppSettings.get_llm_config("worker_llm"))
         
         # Create tool executor for worker
         worker_tool_executor = AIShellToolExecutor(command_executor=command_executor)

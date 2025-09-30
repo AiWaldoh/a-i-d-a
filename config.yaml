@@ -14,20 +14,21 @@ embedding:
   model: all-MiniLM-L6-v2
 keep_last: 20
 llm_configs:
-  agent_llm: gpt_5
+  worker_llm: gpt_4_1
+  brain_llm: gpt_5
   classifier_llm: gpt_4_1
-  personality_llm: gpt_5
+  personality_llm: gpt_4_1
 llm_providers:
   gpt_4_1:
     base_url: https://openrouter.ai/api/v1
     max_retries: 3
     model: openai/gpt-4.1-mini
-    temperature: 0.1
-    timeout: 30
+    temperature: 0.5
+    timeout: 20
   gpt_5:
     base_url: https://openrouter.ai/api/v1
     max_retries: 3
-    model: openai/gpt-4.1-mini
+    model: openai/gpt-5
     reasoning_effort: medium
     temperature: 0.5
     timeout: 20
@@ -39,7 +40,7 @@ llm_providers:
     model: Qwen/Qwen3-Next-80B-A3B-Thinking
     response_parser: qwen_thinking
     temperature: 0.6
-    timeout: 120
+    timeout: 20
     top_p: 0.95
 max_steps: 50
 brain:
