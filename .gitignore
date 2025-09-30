@@ -16,6 +16,7 @@ index_state.json
 repomix-output.xml
 LLM-GENERATED-JUNK/
 *.ovpn
+TODO.md
 
 # Python
 __pycache__/
