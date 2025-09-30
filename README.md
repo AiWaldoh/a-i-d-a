@@ -6,6 +6,7 @@ An AI command line integrated AI shell that uses AI to help with code tasks. It'
 ## Components
 
 * **Agent**: Uses ReAct loop to complete tasks
+* **Brain Agent**: Autonomous strategic planning agent that orchestrates worker agents for complex multi-step tasks
 * **AI Shell**: Intelligent command line that understands both shell commands and natural language
 * **RAG System**: ChromaDB for code search and context
 * **Web Interface**: FastAPI app to view traces and search code
@@ -70,6 +71,7 @@ An AI command line integrated AI shell that uses AI to help with code tasks. It'
    - Seamless switching between shell commands and natural language
    - Context-aware assistance based on recent commands
    - Full shell experience (tab completion, history, arrow keys)
+   - Brain Session mode for autonomous pentesting workflows
    
    Traditional agent features:
    - Persistent chat history within session
@@ -112,6 +114,9 @@ The system automatically discovers and loads all tools defined in `tools.yaml` t
 - **run_command**: Execute shell commands with proper error handling
 - **restart_shell**: Restart the AI Shell process to reload new tools and configurations
 
+### Autonomous Operations
+- **brain_session**: Launch an autonomous Brain Agent that strategically plans and executes complex multi-step tasks like penetration testing
+
 ### File Operations  
 - **read_file**: Read file contents with pagination support
 - **write_to_file**: Create or overwrite files with specified content
@@ -137,6 +142,8 @@ The system automatically discovers and loads all tools defined in `tools.yaml` t
 
 **Traditional Agent**: Uses proxy pattern to log LLM and tool calls. Has different strategies for building context. Everything gets traced so you can see what happened.
 
+**Brain Agent**: A hierarchical dual-agent system where a strategic Brain Agent (senior pentester) maintains state and assigns tasks to a Worker Agent (junior pentester) that executes them. The Brain tracks targets, open ports, findings, and methodically works through penetration testing phases autonomously.
+
 ## AI Shell Examples
 
 ```bash
@@ -147,6 +154,28 @@ $ git push origin main             # Executes directly
 $ what went wrong?                 # AI analyzes with error context
 $ fix it                          # AI runs commands and fixes it
 ```
+
+## Brain Session Examples
+
+Launch autonomous pentesting workflows with built-in command:
+
+```bash
+$ brain-session --target 10.10.10.5 --goal "Complete full penetration test"
+$ brain-session --target htb-box.local --goal "Find user and root flags" --max-iterations 50
+```
+
+Or use natural language:
+
+```bash
+$ start a brain session against 10.10.10.5 to hack this box
+$ launch brain mode to pentest htb-box.local and find the flags
+```
+
+The Brain Agent will:
+1. Maintain a strategic view of the target (IP, open ports, services, credentials)
+2. Plan and assign tasks to the Worker Agent (scan, enumerate, exploit)
+3. Track progress through reconnaissance, exploitation, and privilege escalation phases
+4. Autonomously iterate until the goal is achieved or max iterations reached
 
 Don't just take our word for it - we asked the leading AI models about A.I.D.A to see what they thought. Here's what they had to say. The results speak for themselves.
 
