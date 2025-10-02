@@ -1,0 +1,14 @@
+The needs of the many outweigh the needs of the few.
+
+Changed prompts.yaml to update personality and brain agent prompts for penetration testing focus.
+Added detailed notes and scan results files for tracking penetration testing progress.
+Modified agent.py, memory.py, session.py to improve tool loading, memory handling, and session initialization.
+Enhanced orchestrator.py with structured data extraction, spinner UI, detailed brain-worker interaction, and state management.
+Updated autorecon_scan.py to improve output messages and results directory handling.
+Improved brain_session.py for better initialization logging.
+Enhanced llm/client.py with advanced parsing for structured LLM responses.
+Added wordlists for short passwords and users.
+
+These changes improve the penetration testing automation by enhancing clarity, structure, and detailed state tracking.
+
+A.I.D.A generated the commit.
