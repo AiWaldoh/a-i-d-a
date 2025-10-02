@@ -1,8 +1,0 @@
-root
-admin
-debian
-user
-ubuntu
-test
-git
-backup

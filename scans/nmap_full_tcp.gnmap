@@ -1,4 +1,0 @@
-# Nmap 7.80 scan initiated Thu Oct  2 02:01:19 2025 as: nmap -p- -sC -sV -Pn -T4 -oA scans/nmap_full_tcp 10.10.11.87
-Host: 10.10.11.87 ()	Status: Up
-Host: 10.10.11.87 ()	Ports: 22/open/tcp//ssh//OpenSSH 10.0p2 Debian 8 (protocol 2.0)/
-# Nmap done at Thu Oct  2 02:08:32 2025 -- 1 IP address (1 host up) scanned in 433.22 seconds
