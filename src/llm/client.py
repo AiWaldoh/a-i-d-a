@@ -1,11 +1,14 @@
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Type, TypeVar
+from pydantic import BaseModel
 
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletion
 
 from src.config.settings import AppSettings
 from src.llm.types import LLMConfig
+
+T = TypeVar('T', bound=BaseModel)
 
 
 class LLMClient:
@@ -108,4 +111,68 @@ class LLMClient:
         except Exception as e:
             if self.logger:
                 self.logger.log_error("Error getting LLM response", e)
+            return None
+    
+    async def parse(
+        self,
+        messages: list,
+        response_format: Type[T],
+        temperature: Optional[float] = None
+    ) -> Optional[T]:
+        import json
+        
+        schema = response_format.model_json_schema()
+        
+        def add_additional_properties(obj):
+            if isinstance(obj, dict):
+                if obj.get("type") == "object":
+                    obj["additionalProperties"] = False
+                for value in obj.values():
+                    add_additional_properties(value)
+            elif isinstance(obj, list):
+                for item in obj:
+                    add_additional_properties(item)
+        
+        add_additional_properties(schema)
+        
+        params = {
+            "model": self.config.model,
+            "messages": messages,
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema.get("title", "response"),
+                    "strict": True,
+                    "schema": schema
+                }
+            }
+        }
+        
+        if temperature is not None:
+            params["temperature"] = temperature
+        elif self.config.temperature is not None:
+            params["temperature"] = self.config.temperature
+        
+        if self.config.top_p is not None:
+            params["top_p"] = self.config.top_p
+        if self.config.max_tokens is not None:
+            params["max_tokens"] = self.config.max_tokens
+        
+        start_time = time.time()
+        try:
+            response = await self._client.chat.completions.create(**params)
+            duration = time.time() - start_time
+            
+            if self.logger:
+                self.logger.log_api_call(duration, response.model, response.usage)
+            
+            content = response.choices[0].message.content
+            data = json.loads(content)
+            return response_format(**data)
+        except Exception as e:
+            if self.logger:
+                self.logger.log_error("Error parsing structured output", e)
+            print(f"Structured output error: {e}")
+            import traceback
+            traceback.print_exc()
             return None

@@ -67,12 +67,24 @@ class Command:
     
     async def _run_brain_session(self, target: str, goal: str, brain_prompt: str, max_iterations: int) -> str:
         """Run the autonomous brain session"""
+        import sys
+        from datetime import datetime
+        
+        def timestamp():
+            return datetime.now().strftime("%H:%M:%S")
+        
+        print(f"[{timestamp()}] ⏳ Initializing Brain and Worker agents...")
+        sys.stdout.flush()
+        
         orchestrator = BrainOrchestrator(
             target=target,
             goal=goal,
             brain_prompt=brain_prompt,
             max_iterations=max_iterations
         )
+        
+        print(f"[{timestamp()}] ✅ Agents initialized, starting session...")
+        sys.stdout.flush()
         
         result = await orchestrator.run()
         return result

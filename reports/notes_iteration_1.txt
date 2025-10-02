@@ -1,0 +1,29 @@
+HackTheBox Target: 10.10.11.87
+Date: 2025-10-02
+Iteration: 1/50
+
+Summary:
+- Initial TCP connect scan (non-root) completed.
+
+Open Ports:
+- 22/tcp open (ssh)
+
+Services/Versions:
+- SSH: OpenSSH 10.0p2 Debian 8 (protocol 2.0) [Nmap 7.80 fingerprint]
+  - Note: Version/OS fingerprint may be inaccurate; Debian 8 typically shipped older OpenSSH. Treat with caution.
+
+Vulnerabilities/Issues (Preliminary):
+- Only SSH exposed. No obvious remote unauthenticated vector identified yet.
+- Potential for username/password or key-based auth required. Direct SSH brute-force typically out-of-scope for HTB unless indicated by clues.
+
+Important Discoveries:
+- None (no creds/endpoints yet).
+
+Gaps / Next Steps:
+- Re-run a slower, thorough full TCP scan to catch any rate-limited or high-latency ports that may have been missed by a fast scan.
+- Enumerate UDP top ports to identify additional services.
+- If still only SSH, look for alternative vectors: IPv6, vhosts via TLS SNI (needs HTTPS), or staging through UDP.
+
+Planned Commands:
+- TCP (slow thorough): nmap -sT -p- -T3 --defeat-rst-ratelimit --max-retries 2 --min-rate 1000 -sV -sC -Pn 10.10.11.87 -oA scans/nmap_full_tcp_slow
+- UDP (top ports): nmap -sU --top-ports 200 -sV -Pn 10.10.11.87 -oA scans/nmap_top200_udp

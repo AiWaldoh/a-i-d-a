@@ -47,4 +47,9 @@ class InMemoryMemory:
     
     def update_summary(self, thread_id: str, text: str) -> None:
         self._summaries[thread_id] = text
+    
+    def remove_last_exchange(self, thread_id: str) -> None:
+        if thread_id not in self._events or len(self._events[thread_id]) < 2:
+            return
+        self._events[thread_id] = self._events[thread_id][:-2]
 

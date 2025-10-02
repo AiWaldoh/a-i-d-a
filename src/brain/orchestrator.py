@@ -1,8 +1,12 @@
 import asyncio
 import uuid
 import yaml
+import sys
+import threading
+import time
 from datetime import datetime
 from typing import Dict, Any, List
+from pydantic import BaseModel
 
 from src.agent.session import ChatSession
 from src.agent.memory import InMemoryMemory, Message
@@ -14,6 +18,62 @@ from src.config.settings import AppSettings
 from src.trace.proxies import LLMProxy, ToolProxy
 from src.trace.events import TraceContext, FileEventSink, TaskEvent
 from src.utils.paths import get_absolute_path
+
+
+class ExtractionStep(BaseModel):
+    reasoning: str
+    extracted_info: str
+    
+    class Config:
+        title = "ExtractionStep"
+
+
+class ServiceInfo(BaseModel):
+    port: str
+    service: str
+    
+    class Config:
+        title = "ServiceInfo"
+
+
+class TargetStateExtraction(BaseModel):
+    steps: List[ExtractionStep]
+    open_ports: List[int]
+    services: List[ServiceInfo]
+    vulnerabilities: List[str]
+    key_findings: List[str]
+    
+    class Config:
+        title = "TargetStateExtraction"
+
+
+class Spinner:
+    def __init__(self, message: str):
+        self.message = message
+        self.running = False
+        self.thread = None
+        self.spinner_chars = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+    
+    def _spin(self):
+        idx = 0
+        while self.running:
+            sys.stdout.write(f'\r{self.spinner_chars[idx]} {self.message}')
+            sys.stdout.flush()
+            idx = (idx + 1) % len(self.spinner_chars)
+            time.sleep(0.1)
+        sys.stdout.write('\r' + ' ' * (len(self.message) + 3) + '\r')
+        sys.stdout.flush()
+    
+    def start(self):
+        self.running = True
+        self.thread = threading.Thread(target=self._spin)
+        self.thread.daemon = True
+        self.thread.start()
+    
+    def stop(self):
+        self.running = False
+        if self.thread:
+            self.thread.join()
 
 
 class BrainOrchestrator:
@@ -41,20 +101,23 @@ class BrainOrchestrator:
         trace_file = str(tmp_dir / f"brain_trace_{timestamp}.jsonl")
         self.event_sink = FileEventSink(trace_file)
         
-        # Initialize target state tracking
+        self.target = target
+        self.goal = goal
+        
         self.target_state = {
             "target_ip": target,
             "goal": goal,
-            "phase": "RECONNAISSANCE",
             "open_ports": [],
             "services": {},
             "vulnerabilities": [],
-            "findings": [],
-            "next_actions": []
+            "key_findings": []
         }
         
         # Initialize agents
         self._setup_agents()
+    
+    def _timestamp(self) -> str:
+        return datetime.now().strftime("%H:%M:%S")
     
     def _load_prompts(self) -> dict:
         try:
@@ -67,14 +130,14 @@ class BrainOrchestrator:
     def _setup_agents(self):
         """Initialize Brain and Worker agents"""
         # Create command executor for worker
-        command_executor = CommandExecutor()
+        self.command_executor = CommandExecutor()
         
         # Create LLM clients
         brain_llm = LLMClient(AppSettings.get_llm_config("brain_llm"))
         worker_llm = LLMClient(AppSettings.get_llm_config("worker_llm"))
         
         # Create tool executor for worker
-        worker_tool_executor = AIShellToolExecutor(command_executor=command_executor)
+        worker_tool_executor = AIShellToolExecutor(command_executor=self.command_executor)
         
         # Create trace contexts
         brain_trace_context = TraceContext(
@@ -140,10 +203,10 @@ class BrainOrchestrator:
     
     async def run(self) -> str:
         """Run the autonomous brain session"""
-        print(f"🧠 Starting Brain Session")
-        print(f"🎯 Target: {self.target}")
-        print(f"🎯 Goal: {self.goal}")
-        print(f"📝 Max iterations: {self.max_iterations}")
+        print(f"[{self._timestamp()}] 🧠 Starting Brain Session")
+        print(f"[{self._timestamp()}] 🎯 Target: {self.target}")
+        print(f"[{self._timestamp()}] 🎯 Goal: {self.goal}")
+        print(f"[{self._timestamp()}] 📝 Max iterations: {self.max_iterations}")
         print("=" * 60)
         
         # Emit session start event
@@ -164,66 +227,101 @@ class BrainOrchestrator:
                 self.iteration_count += 1
                 
                 print(f"\n{'='*80}")
-                print(f"🔄 ITERATION {self.iteration_count}/{self.max_iterations}")
+                print(f"[{self._timestamp()}] 🔄 ITERATION {self.iteration_count}/{self.max_iterations}")
                 print(f"{'='*80}")
                 
                 # 1. Brain decides next action
-                print("\n🧠 BRAIN THINKING...")
-                print(f"📊 Current State: Phase={self.target_state['phase']}, "
-                      f"Ports={len(self.target_state['open_ports'])}, "
-                      f"Findings={len(self.target_state['findings'])}")
+                print(f"\n[{self._timestamp()}] 🧠 BRAIN THINKING...")
+                print(f"[{self._timestamp()}] 📊 Iteration: {self.iteration_count}/{self.max_iterations}")
                 
+                brain_context = self._build_brain_context()
+                print(f"\n[{self._timestamp()}] 🧠 BRAIN CONTEXT:\n{brain_context}")
+                
+                spinner = Spinner("Brain analyzing target state and deciding next action...")
+                spinner.start()
                 brain_decision = await self._get_brain_decision()
+                spinner.stop()
+                
                 if not brain_decision:
-                    print("❌ Brain failed to make a decision. Stopping.")
+                    print(f"[{self._timestamp()}] ❌ Brain failed to make a decision. Stopping.")
                     break
                 
-                print(f"\n🧠 BRAIN DECISION:")
+                print(f"\n[{self._timestamp()}] 🧠 BRAIN DECISION:")
                 print(f"{'─'*80}")
                 print(f"{brain_decision}")
                 print(f"{'─'*80}")
                 
                 # 2. Check if brain wants to stop
                 if self._should_stop(brain_decision):
-                    print("\n🏁 Brain has decided to complete the session!")
+                    print(f"\n[{self._timestamp()}] 🏁 Brain has decided to complete the session!")
                     break
                 
                 # 3. Worker executes the task
-                print(f"\n🔧 WORKER EXECUTING TASK...")
+                print(f"\n[{self._timestamp()}] 🔧 WORKER EXECUTING TASK...")
+                
+                spinner = Spinner(f"Worker executing: {brain_decision[:60]}...")
+                spinner.start()
                 worker_result = await self._execute_worker_task(brain_decision)
+                spinner.stop()
                 
-                print(f"\n🔧 WORKER RESULT:")
+                print(f"\n[{self._timestamp()}] 🔧 WORKER RESULT:")
                 print(f"{'─'*80}")
-                # Show full result, not truncated
-                if len(worker_result) > 1000:
-                    print(f"{worker_result[:1000]}")
-                    print(f"\n... [truncated, showing first 1000 chars of {len(worker_result)} total] ...")
-                else:
-                    print(f"{worker_result}")
+                print(f"{worker_result}")
                 print(f"{'─'*80}")
                 
-                # 4. Update target state based on results
-                self._update_target_state(brain_decision, worker_result)
+                # 4. Brain takes notes
+                print(f"\n[{self._timestamp()}] 📝 BRAIN TAKING NOTES...")
                 
-                # 5. Show updated state
-                print(f"\n📊 UPDATED STATE:")
-                print(f"  Phase: {self.target_state['phase']}")
+                spinner = Spinner("Brain analyzing results and taking notes...")
+                spinner.start()
+                notes = await self._ask_brain_for_notes(brain_decision, worker_result)
+                spinner.stop()
+                
+                print(f"[{self._timestamp()}] Notes:\n{notes}")
+                
+                # 5. Extract structured data from notes (LLM with temp 0.1)
+                print(f"\n[{self._timestamp()}] 🔍 EXTRACTING STRUCTURED DATA...")
+                
+                spinner = Spinner("Extracting structured data with chain-of-thought reasoning...")
+                spinner.start()
+                extracted = await self._extract_state_from_notes(notes)
+                spinner.stop()
+                
+                print(f"[{self._timestamp()}]   Extracted ports: {extracted['open_ports']}")
+                print(f"[{self._timestamp()}]   Extracted services: {list(extracted['services'].keys()) if extracted['services'] else []}")
+                print(f"[{self._timestamp()}]   Extracted vulnerabilities: {len(extracted['vulnerabilities'])} items")
+                print(f"[{self._timestamp()}]   Extracted findings: {len(extracted['key_findings'])} items")
+                
+                # 6. Update target state
+                self._update_target_state(extracted)
+                
+                # 7. Remove notes conversation from Brain's history (save context)
+                self.brain_session.memory.remove_last_exchange(self.brain_thread_id)
+                
+                # 8. Show updated state
+                print(f"\n[{self._timestamp()}] 📊 UPDATED STATE:")
                 if self.target_state['open_ports']:
-                    print(f"  Open Ports: {self.target_state['open_ports']}")
+                    print(f"[{self._timestamp()}]   Open Ports: {self.target_state['open_ports']}")
                 if self.target_state['services']:
-                    print(f"  Services: {self.target_state['services']}")
+                    print(f"[{self._timestamp()}]   Services: {self.target_state['services']}")
                 if self.target_state['vulnerabilities']:
-                    print(f"  Vulnerabilities: {self.target_state['vulnerabilities']}")
+                    print(f"[{self._timestamp()}]   Vulnerabilities: {len(self.target_state['vulnerabilities'])} found")
+                if self.target_state['key_findings']:
+                    print(f"[{self._timestamp()}]   Key Findings: {len(self.target_state['key_findings'])} items")
                 
-                # 6. Brief pause to prevent overwhelming
+                # 9. Brief pause to prevent overwhelming
                 await asyncio.sleep(1)
             
             # Print session history
             self._print_session_history()
             
             # Generate final report
-            print("\n🤖 Generating final report...")
+            print(f"\n[{self._timestamp()}] 🤖 Generating final report...")
+            
+            spinner = Spinner("Generating final penetration testing report...")
+            spinner.start()
             final_report = await self._generate_final_report()
+            spinner.stop()
             
             # Emit session end event
             self.event_sink.emit(TaskEvent(
@@ -264,7 +362,7 @@ class BrainOrchestrator:
             response, _ = await self.brain_session.ask(brain_prompt)
             return response.strip()
         except Exception as e:
-            print(f"❌ Brain decision error: {e}")
+            print(f"[{self._timestamp()}] ❌ Brain decision error: {e}")
             return ""
     
     async def _execute_worker_task(self, task: str) -> str:
@@ -279,55 +377,125 @@ class BrainOrchestrator:
         except Exception as e:
             return f"Worker execution error: {str(e)}"
     
+    async def _ask_brain_for_notes(self, task: str, result: str) -> str:
+        notes_prompt = f"""You asked Worker to: {task}
+Worker reported: {result}
+
+Update your notes with key findings. Extract:
+- Open ports (if any)
+- Services and versions (if any)  
+- Vulnerabilities or issues found (if any)
+- Important discoveries (credentials, endpoints, etc.)
+
+Write concise technical notes about what was discovered."""
+
+        try:
+            notes, _ = await self.brain_session.ask(notes_prompt)
+            return notes.strip()
+        except Exception as e:
+            print(f"[{self._timestamp()}] ❌ Brain notes error: {e}")
+            return ""
+    
     def _build_brain_context(self) -> str:
-        """Build context string for brain decision making"""
-        context_parts = []
-        context_parts.append(f"Target: {self.target_state['target_ip']}")
-        context_parts.append(f"Goal: {self.target_state['goal']}")
-        context_parts.append(f"Phase: {self.target_state['phase']}")
-        context_parts.append(f"Iteration: {self.iteration_count}/{self.max_iterations}")
+        current_dir = self.command_executor.get_current_directory()
+        
+        parts = [
+            f"Target: {self.target_state['target_ip']}",
+            f"Goal: {self.target_state['goal']}",
+            f"Working Directory: {current_dir}",
+            f"Iteration: {self.iteration_count}/{self.max_iterations}"
+        ]
         
         if self.target_state['open_ports']:
-            context_parts.append(f"Open Ports: {', '.join(map(str, self.target_state['open_ports']))}")
+            parts.append(f"Open Ports: {', '.join(map(str, self.target_state['open_ports']))}")
         
         if self.target_state['services']:
-            services_str = ', '.join([f"{port}:{service}" for port, service in self.target_state['services'].items()])
-            context_parts.append(f"Services: {services_str}")
+            services = ', '.join([f"{port}:{svc}" for port, svc in self.target_state['services'].items()])
+            parts.append(f"Services: {services}")
         
         if self.target_state['vulnerabilities']:
-            context_parts.append(f"Vulnerabilities: {', '.join(self.target_state['vulnerabilities'])}")
+            parts.append(f"Vulnerabilities: {', '.join(self.target_state['vulnerabilities'])}")
         
-        if self.target_state['findings']:
-            recent_findings = self.target_state['findings'][-3:]  # Last 3 findings
-            context_parts.append(f"Recent Findings: {'; '.join(recent_findings)}")
+        if self.target_state['key_findings']:
+            recent = self.target_state['key_findings'][-3:]
+            parts.append(f"Key Findings: {'; '.join(recent)}")
         
-        return '\n'.join(context_parts)
+        return '\n'.join(parts)
     
-    def _update_target_state(self, task: str, result: str):
-        """Update target state based on task results"""
-        # Simple pattern matching to extract information
-        # This could be enhanced with more sophisticated parsing
+    async def _extract_state_from_notes(self, notes: str) -> dict:
+        extraction_llm = LLMClient(AppSettings.get_llm_config("brain_llm"))
         
-        # Extract ports from nmap results
-        if "nmap" in task.lower() and "open" in result.lower():
-            import re
-            port_pattern = r'(\d+)\/tcp\s+open'
-            ports = re.findall(port_pattern, result)
-            for port in ports:
-                if int(port) not in self.target_state['open_ports']:
-                    self.target_state['open_ports'].append(int(port))
+        extraction_prompt = f"""Extract structured data from these technical penetration testing notes. Think step by step.
+
+Notes:
+{notes}
+
+Analyze the notes and extract:
+1. **Open Ports**: Only actual network ports (22, 80, 443, etc.), NOT version numbers or iteration counts
+2. **Services**: List of services with their port and name/version
+3. **Vulnerabilities**: Security issues, CVEs, exploitable weaknesses
+4. **Key Findings**: Credentials, endpoints, access points, important discoveries
+
+For each piece of information you extract, explain your reasoning in the steps array.
+
+Rules:
+- Be precise: Don't confuse version numbers (8.2) with port numbers
+- Only extract ports that are explicitly mentioned as network ports
+- For services: port can be any string ("22", "22/tcp", "80/udp", etc.) - keep whatever format makes sense
+- Services is an array of objects with "port" and "service" fields
+- If nothing found for a field, use empty list
+"""
+
+        try:
+            result = await extraction_llm.parse(
+                messages=[{"role": "user", "content": extraction_prompt}],
+                response_format=TargetStateExtraction,
+                temperature=0.1
+            )
+            
+            if result is None:
+                raise Exception("Structured parsing returned None")
+            
+            print(f"\n[{self._timestamp()}] 🧠 EXTRACTION REASONING:")
+            for i, step in enumerate(result.steps, 1):
+                print(f"[{self._timestamp()}]   Step {i}: {step.reasoning}")
+                print(f"[{self._timestamp()}]     → {step.extracted_info}")
+            
+            services_dict = {svc.port: svc.service for svc in result.services}
+            
+            return {
+                "open_ports": result.open_ports,
+                "services": services_dict,
+                "vulnerabilities": result.vulnerabilities,
+                "key_findings": result.key_findings
+            }
+        except Exception as e:
+            print(f"[{self._timestamp()}] ⚠️  Extraction failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "open_ports": [],
+                "services": {},
+                "vulnerabilities": [],
+                "key_findings": []
+            }
+    
+    def _update_target_state(self, extracted: dict) -> None:
+        for port in extracted["open_ports"]:
+            if port not in self.target_state["open_ports"]:
+                self.target_state["open_ports"].append(port)
         
-        # Track findings
-        self.target_state['findings'].append(f"Task: {task[:50]}... Result: {result[:100]}...")
+        self.target_state["services"].update(extracted["services"])
         
-        # Update phase based on progress
-        if len(self.target_state['open_ports']) > 0 and self.target_state['phase'] == 'RECONNAISSANCE':
-            self.target_state['phase'] = 'ENUMERATION'
-        elif self.target_state['vulnerabilities'] and self.target_state['phase'] == 'ENUMERATION':
-            self.target_state['phase'] = 'EXPLOITATION'
+        for vuln in extracted["vulnerabilities"]:
+            if vuln not in self.target_state["vulnerabilities"]:
+                self.target_state["vulnerabilities"].append(vuln)
+        
+        for finding in extracted["key_findings"]:
+            if finding not in self.target_state["key_findings"]:
+                self.target_state["key_findings"].append(finding)
     
     def _should_stop(self, brain_decision: str) -> bool:
-        """Check if brain wants to stop the session"""
         stop_keywords = ['complete', 'finished', 'done', 'success', 'accomplished']
         return any(keyword in brain_decision.lower() for keyword in stop_keywords)
     
@@ -339,7 +507,6 @@ class BrainOrchestrator:
         print(f"Target: {self.target}")
         print(f"Goal: {self.goal}")
         print(f"Total Iterations: {self.iteration_count}")
-        print(f"Final Phase: {self.target_state['phase']}")
         print(f"{'='*80}\n")
         
         # Get conversation history from both agents
@@ -351,7 +518,7 @@ class BrainOrchestrator:
         for i, msg in enumerate(brain_history, 1):
             if msg.role == "user":
                 print(f"\n[{i}] USER → BRAIN:")
-                print(f"  {msg.content[:200]}...")
+                print(f"  {msg.content}")
             elif msg.role == "assistant":
                 print(f"\n[{i}] BRAIN RESPONSE:")
                 print(f"  {msg.content}")
@@ -362,28 +529,27 @@ class BrainOrchestrator:
         for i, msg in enumerate(worker_history, 1):
             if msg.role == "user":
                 print(f"\n[{i}] BRAIN → WORKER:")
-                print(f"  {msg.content[:200]}...")
+                print(f"  {msg.content}")
             elif msg.role == "assistant":
                 print(f"\n[{i}] WORKER RESPONSE:")
-                # Truncate long worker responses
-                if len(msg.content) > 300:
-                    print(f"  {msg.content[:300]}...")
-                    print(f"  ... [truncated {len(msg.content)} total chars]")
-                else:
-                    print(f"  {msg.content}")
+                print(f"  {msg.content}")
         print(f"\n{'─'*80}\n")
         
         print("📊 FINAL TARGET STATE:")
         print(f"{'─'*80}")
-        print(f"Phase: {self.target_state['phase']}")
-        print(f"Open Ports: {self.target_state['open_ports']}")
-        print(f"Services: {self.target_state['services']}")
-        print(f"Vulnerabilities: {self.target_state['vulnerabilities']}")
-        print(f"Total Findings: {len(self.target_state['findings'])}")
-        
-        if self.target_state['findings']:
-            print(f"\nRecent Findings:")
-            for i, finding in enumerate(self.target_state['findings'][-5:], 1):
+        print(f"Target: {self.target_state['target_ip']}")
+        print(f"Goal: {self.target_state['goal']}")
+        if self.target_state['open_ports']:
+            print(f"Open Ports: {self.target_state['open_ports']}")
+        if self.target_state['services']:
+            print(f"Services: {self.target_state['services']}")
+        if self.target_state['vulnerabilities']:
+            print(f"Vulnerabilities ({len(self.target_state['vulnerabilities'])} total):")
+            for i, vuln in enumerate(self.target_state['vulnerabilities'][:5], 1):
+                print(f"  {i}. {vuln}")
+        if self.target_state['key_findings']:
+            print(f"Key Findings ({len(self.target_state['key_findings'])} total):")
+            for i, finding in enumerate(self.target_state['key_findings'][:5], 1):
                 print(f"  {i}. {finding}")
         print(f"{'─'*80}\n")
     

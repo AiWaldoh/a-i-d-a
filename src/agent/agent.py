@@ -84,6 +84,9 @@ class Agent:
     
     def _load_tools(self) -> List[Dict[str, Any]]:
         """Load tools from tools.yaml and convert to OpenAI format."""
+        if self.tool_executor is None:
+            return []
+        
         try:
             with open(get_absolute_path("tools.yaml"), 'r') as f:
                 tools_config = yaml.safe_load(f)
@@ -129,7 +132,8 @@ class Agent:
             
             for retry_attempt in range(max_retries):
                 try:
-                    response = await self.llm_client.get_response(messages=messages, tools=self.tools)
+                    tools_param = self.tools if self.tools else None
+                    response = await self.llm_client.get_response(messages=messages, tools=tools_param)
                     if response and response.choices:
                         break  # Success, exit retry loop
                     else:

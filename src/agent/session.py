@@ -7,16 +7,17 @@ from src.agent.prompt_builder import PromptBuilder
 from src.llm.client import LLMClient
 from src.agent.tool_executor import ToolExecutor
 
+_DEFAULT = object()
 
 class ChatSession:
     def __init__(self, memory: Optional[MemoryPort] = None, llm_client: Optional[LLMClient] = None,
-                 tool_executor: Optional[ToolExecutor] = None, prompt_builder: Optional[PromptBuilder] = None,
+                 tool_executor = _DEFAULT, prompt_builder: Optional[PromptBuilder] = None,
                  thread_id: Optional[str] = None, context_mode: str = "none", max_steps: int = 50,
                  personality_llm: Optional[LLMClient] = None):
         self.thread_id = thread_id or str(uuid.uuid4())
         self.memory = memory or InMemoryMemory()
         self.llm_client = llm_client or LLMClient()
-        self.tool_executor = tool_executor or ToolExecutor()
+        self.tool_executor = ToolExecutor() if tool_executor is _DEFAULT else tool_executor
         self.prompt_builder = prompt_builder or PromptBuilder(context_mode=context_mode)
         self.context_mode = context_mode
         self.total_tokens = 0

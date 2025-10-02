@@ -31,10 +31,17 @@ class Command:
             if process.stderr:
                 output += process.stderr
             
+            results_dir = f"results/{ip_address}"
+            
             if process.returncode != 0:
                 output = f"❌ COMMAND FAILED\n{output}\nExit Code: {process.returncode}"
+            else:
+                if output.strip():
+                    output += f"\n\n✓ AutoRecon scan completed. Results saved to: {results_dir}/"
+                else:
+                    output = f"✓ AutoRecon scan completed. Results saved to: {results_dir}/"
             
-            return output.strip() if output.strip() else "✓ AutoRecon completed"
+            return output.strip()
             
         except Exception as e:
             return f"Error running AutoRecon: {str(e)}"
