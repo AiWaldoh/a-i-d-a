@@ -90,6 +90,17 @@ class CommandClassifier:
             # Default to natural language for ambiguous "find"
             return False
         
+        if first_word == "which":
+            if len(text.split()) > 1:
+                second_word = text.split()[1]
+                if second_word in ['python', 'node', 'npm', 'git', 'gcc', 'java', 'ruby']:
+                    return True
+                elif second_word.lower() in ['port', 'file', 'service', 'vulnerability', 'one', 'ones', 'is', 'are', 'was', 'were']:
+                    return False
+            if text.endswith('?'):
+                return False
+            return True
+        
         if first_word in self.obvious_commands:
             return True
         
